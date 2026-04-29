@@ -641,6 +641,78 @@
   .sync-info.error { color: #b04040; }
   .sync-info.ok { color: #4a7a35; }
 
+  /* ============ 되풀이 (Recurring) ============ */
+  .recurring-list {
+    max-height: 50vh; overflow-y: auto; margin-top: 12px;
+    border: 1px solid #e0d5c3; border-radius: 4px; background: #fdfaf3;
+  }
+  .recurring-empty {
+    padding: 30px; text-align: center; color: #a89a84;
+    font-size: 13px; font-style: italic;
+  }
+  .recurring-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid #ede2cf;
+  }
+  .recurring-item:last-child { border-bottom: none; }
+  .recurring-item .r-main { flex: 1; min-width: 0; }
+  .recurring-item .r-title {
+    font-size: 14px; color: #3a2e24; font-weight: 500; margin-bottom: 4px;
+  }
+  .recurring-item .r-meta {
+    font-size: 12px; color: #6b5c4a;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .recurring-item .r-meta .r-time {
+    background: #ede2cf; padding: 2px 8px; border-radius: 3px; font-family: 'Consolas', monospace;
+  }
+  .recurring-item .r-meta .r-cat {
+    background: #ede2cf; padding: 2px 8px; border-radius: 3px;
+  }
+  .recurring-item .r-meta .r-pattern { color: #8c6d4f; }
+  .recurring-item .r-edit {
+    background: transparent; border: 1px solid #8c6d4f; color: #5c4a38;
+    padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
+  }
+  .recurring-item .r-edit:hover { background: #ede2cf; }
+
+  .recurring-pattern {
+    border: 1px solid #d4c5ae; border-radius: 4px; padding: 12px;
+    background: #fdfaf3; margin-top: 6px;
+  }
+  .pattern-type-row {
+    display: flex; gap: 16px; margin-bottom: 12px;
+    padding-bottom: 10px; border-bottom: 1px dashed #e0d5c3;
+  }
+  .pattern-radio {
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; font-size: 13px; color: #3a2e24;
+  }
+  .pattern-radio input { accent-color: #8c6d4f; cursor: pointer; }
+  .weekday-picker {
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .weekday-btn {
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1px solid #d4c5ae; background: #fdfaf3;
+    color: #5c4a38; font-size: 13px; cursor: pointer;
+    transition: all 0.1s;
+  }
+  .weekday-btn:hover { background: #ede2cf; }
+  .weekday-btn.selected {
+    background: #8c6d4f; color: #faf5eb; border-color: #8c6d4f;
+  }
+  /* 되풀이 인스턴스 표시 — 일과 이벤트 우측 위 점 */
+  .event[data-recurring="1"]::after {
+    content: '🔁'; position: absolute; top: 2px; right: 4px;
+    font-size: 9px; opacity: 0.7;
+  }
+  .longterm-item[data-recurring="1"]::after,
+  .week-task-card[data-recurring="1"]::after {
+    content: '🔁'; position: absolute; top: 4px; right: 6px;
+    font-size: 10px; opacity: 0.6;
+  }
+
   /* ============ 모바일 (폰) 전용 — 보기 위주 + Todo 추가/체크만 ============ */
   @media (max-width: 768px) {
     body { font-size: 15px; }
@@ -662,7 +734,7 @@
     }
     .date-nav .date-display { padding: 8px 12px; }
     /* 편집용 헤더 버튼 숨김 */
-    #weekly-btn, #summary-btn { display: none !important; }
+    #weekly-btn, #summary-btn, #recurring-btn { display: none !important; }
 
     /* 메인 — 세로 스택, 페이지 자체 스크롤 사용 */
     main { flex-direction: column; height: auto; overflow: visible; }
@@ -750,6 +822,7 @@
   </div>
   <div class="actions">
     <button class="action-btn" id="weekly-btn">📅 주간업무</button>
+    <button class="action-btn" id="recurring-btn">🔁 되풀이 목록</button>
     <button class="action-btn" id="sync-btn">☁ 동기화<span class="sync-badge" id="sync-badge"></span></button>
     <button class="action-btn primary" id="summary-btn">📝 업무 정리</button>
   </div>
@@ -854,6 +927,38 @@
     </div>
     <label>색상</label>
     <div class="color-row" id="color-row"></div>
+
+    <!-- 되풀이 인라인 섹션 (planned에서만 표시됨, openEventModal에서 토글) -->
+    <div id="event-recurring-wrapper">
+      <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:14px;">
+        <input type="checkbox" id="event-recurring" style="cursor:pointer; accent-color:#8c6d4f;">
+        <span style="color:#3a2e24; font-size:13px;">🔁 되풀이로 등록 (매주/격주/매월 반복)</span>
+      </label>
+      <div id="event-recurring-section" style="display:none;">
+        <div class="recurring-pattern" id="ev-pattern-picker">
+          <div class="pattern-type-row">
+            <label class="pattern-radio"><input type="radio" name="rp-ev-type" value="weekly" checked> 매주</label>
+            <label class="pattern-radio"><input type="radio" name="rp-ev-type" value="biweekly"> 격주</label>
+            <label class="pattern-radio"><input type="radio" name="rp-ev-type" value="monthly"> 매월 N째</label>
+          </div>
+          <div class="pattern-weekly-options">
+            <div class="weekday-picker"></div>
+          </div>
+          <div class="pattern-monthly-options" style="display:none;">
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span style="color:#5c4a38;">매월</span>
+              <select class="pattern-occurrence">
+                <option value="1">첫째</option><option value="2">둘째</option><option value="3">셋째</option><option value="4">넷째</option><option value="5">마지막</option>
+              </select>
+              <select class="pattern-monthly-weekday">
+                <option value="1">월요일</option><option value="2">화요일</option><option value="3">수요일</option><option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option><option value="0">일요일</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button id="event-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
       <button id="event-cancel">취소</button>
@@ -1000,10 +1105,152 @@
         </label>
       </div>
     </div>
+
+    <!-- 되풀이 인라인 섹션 -->
+    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; margin-top:14px;">
+      <input type="checkbox" id="longterm-recurring" style="cursor:pointer; accent-color:#8c6d4f;">
+      <span style="color:#3a2e24; font-size:13px;">🔁 되풀이로 등록 (매주/격주/매월 반복)</span>
+    </label>
+    <div id="longterm-recurring-section" style="display:none;">
+      <div class="recurring-pattern" id="lt-pattern-picker">
+        <div class="pattern-type-row">
+          <label class="pattern-radio"><input type="radio" name="rp-lt-type" value="weekly" checked> 매주</label>
+          <label class="pattern-radio"><input type="radio" name="rp-lt-type" value="biweekly"> 격주</label>
+          <label class="pattern-radio"><input type="radio" name="rp-lt-type" value="monthly"> 매월 N째</label>
+        </div>
+        <div class="pattern-weekly-options">
+          <div class="weekday-picker"></div>
+        </div>
+        <div class="pattern-monthly-options" style="display:none;">
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span style="color:#5c4a38;">매월</span>
+            <select class="pattern-occurrence">
+              <option value="1">첫째</option><option value="2">둘째</option><option value="3">셋째</option><option value="4">넷째</option><option value="5">마지막</option>
+            </select>
+            <select class="pattern-monthly-weekday">
+              <option value="1">월요일</option><option value="2">화요일</option><option value="3">수요일</option><option value="4">목요일</option><option value="5">금요일</option><option value="6">토요일</option><option value="0">일요일</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button id="longterm-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
       <button id="longterm-cancel">취소</button>
       <button class="primary" id="longterm-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 되풀이 템플릿 관리 모달 -->
+<div class="modal-backdrop" id="recurring-modal">
+  <div class="modal" style="width: 600px;">
+    <h2>🔁 되풀이 일정 관리</h2>
+    <div class="settings-tabs" id="recurring-tabs">
+      <button class="settings-tab active" data-rtab="daily">시간 있는 일정 (일과계획)</button>
+      <button class="settings-tab" data-rtab="weekly">시간 없는 주간업무</button>
+    </div>
+    <div class="recurring-list" id="recurring-list"></div>
+    <div class="modal-actions">
+      <button id="recurring-add" class="primary">+ 새 되풀이 추가</button>
+      <button id="recurring-close" style="margin-left:auto;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 되풀이 항목 추가/편집 모달 -->
+<div class="modal-backdrop" id="recurring-edit-modal">
+  <div class="modal" style="width: 540px;">
+    <h2 id="recurring-edit-title">되풀이 추가</h2>
+    <label>제목</label>
+    <input type="text" id="recurring-edit-name" placeholder="예: 점심식사 / 주간업무회의 / 주간보고서">
+
+    <div id="recurring-edit-time-row" style="display:none;">
+      <label>시간</label>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="time" id="recurring-edit-start" style="flex:1;">
+        <span>~</span>
+        <input type="time" id="recurring-edit-end" style="flex:1;">
+      </div>
+    </div>
+
+    <div id="recurring-edit-color-row" style="display:none;">
+      <label>색상</label>
+      <div class="color-row" id="recurring-edit-colors"></div>
+    </div>
+
+    <div id="recurring-edit-meta-rows" style="display:none;">
+      <div class="longterm-meta-row">
+        <label>카테고리</label>
+        <select id="recurring-edit-category"></select>
+      </div>
+      <div class="longterm-meta-row">
+        <label>담당자 (복수 선택)</label>
+        <div class="chip-select" id="recurring-edit-assignees"></div>
+      </div>
+      <div class="longterm-meta-row">
+        <label>중요도</label>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <select id="recurring-edit-importance" style="flex:1;"></select>
+          <label style="display:flex; align-items:center; gap:5px; cursor:pointer; font-size:14px; white-space:nowrap;">
+            <input type="checkbox" id="recurring-edit-urgent" style="cursor:pointer; accent-color:#b02020;">
+            ⚡ 시급
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <label>반복 패턴</label>
+    <div class="recurring-pattern" id="recurring-pattern-picker">
+      <div class="pattern-type-row">
+        <label class="pattern-radio"><input type="radio" name="rp-edit-type" value="weekly" checked> 매주</label>
+        <label class="pattern-radio"><input type="radio" name="rp-edit-type" value="biweekly"> 격주</label>
+        <label class="pattern-radio"><input type="radio" name="rp-edit-type" value="monthly"> 매월 N째</label>
+      </div>
+      <div class="pattern-weekly-options">
+        <div class="weekday-picker"></div>
+      </div>
+      <div class="pattern-monthly-options" style="display:none;">
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span style="color:#5c4a38;">매월</span>
+          <select class="pattern-occurrence">
+            <option value="1">첫째</option>
+            <option value="2">둘째</option>
+            <option value="3">셋째</option>
+            <option value="4">넷째</option>
+            <option value="5">마지막</option>
+          </select>
+          <select class="pattern-monthly-weekday">
+            <option value="1">월요일</option>
+            <option value="2">화요일</option>
+            <option value="3">수요일</option>
+            <option value="4">목요일</option>
+            <option value="5">금요일</option>
+            <option value="6">토요일</option>
+            <option value="0">일요일</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="recurring-edit-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">템플릿 삭제</button>
+      <button id="recurring-edit-cancel">취소</button>
+      <button class="primary" id="recurring-edit-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 본/모두 선택 모달 (되풀이 인스턴스 수정/삭제 시) -->
+<div class="modal-backdrop" id="recurring-choice-modal">
+  <div class="modal" style="width: 420px;">
+    <h2 id="recurring-choice-title">되풀이 일정</h2>
+    <p id="recurring-choice-message" style="color:#5c4a38; margin:8px 0 18px; line-height:1.5;"></p>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button id="recurring-choice-this" class="primary" style="padding:12px;">본 일정만</button>
+      <button id="recurring-choice-all" style="padding:12px;">모든 되풀이 일정</button>
+      <button id="recurring-choice-cancel" style="padding:12px;">취소</button>
     </div>
   </div>
 </div>
@@ -1551,6 +1798,7 @@ function renderLongTerm() {
     const status = getTaskStatus(task);
     const div = document.createElement('div');
     div.className = 'longterm-item' + (task.done ? ' done' : '') + (status === 'overdue' ? ' overdue' : '');
+    if (task.recurringId) div.dataset.recurring = '1';
     div.innerHTML = `
       <input type="checkbox" class="done-check" ${task.done ? 'checked' : ''}>
       <button class="del-x">×</button>
@@ -1574,6 +1822,12 @@ function renderLongTerm() {
     });
     div.querySelector('.del-x').addEventListener('click', (e) => {
       e.stopPropagation();
+      // 되풀이 인스턴스 → 본/모두 prompt
+      if (task.recurringId && !task.recurringDetached) {
+        currentEditingLongterm = task;
+        deleteLongTerm();
+        return;
+      }
       saveLongTermTasks(getLongTermTasks().filter(t => t.id !== task.id));
       renderLongTerm();
     });
@@ -1602,6 +1856,553 @@ function getSettings() {
 }
 function saveSettings(s) {
   localStorage.setItem('worklog-settings', JSON.stringify(s));
+  if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+}
+
+// ============== 되풀이 (Recurring) — 데이터 레이어 ==============
+const WEEKDAY_NAMES = ['일','월','화','수','목','금','토'];
+const OCCURRENCE_NAMES = ['', '첫째', '둘째', '셋째', '넷째', '마지막'];
+
+function getRecurring() {
+  const raw = localStorage.getItem('worklog-recurring');
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      return {
+        daily: Array.isArray(obj.daily) ? obj.daily : [],
+        weekly: Array.isArray(obj.weekly) ? obj.weekly : [],
+      };
+    } catch(e) {}
+  }
+  return { daily: [], weekly: [] };
+}
+function saveRecurring(r) {
+  localStorage.setItem('worklog-recurring', JSON.stringify(r));
+  if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+}
+function getRecurringSkipped() {
+  const raw = localStorage.getItem('worklog-recurring-skipped');
+  if (raw) {
+    try {
+      const obj = JSON.parse(raw);
+      return {
+        daily: obj.daily || {},
+        weekly: obj.weekly || {},
+      };
+    } catch(e) {}
+  }
+  return { daily: {}, weekly: {} };
+}
+function saveRecurringSkipped(s) {
+  localStorage.setItem('worklog-recurring-skipped', JSON.stringify(s));
+  if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+}
+function markRecurringSkipped(type, recurringId, dateKey) {
+  const s = getRecurringSkipped();
+  if (!s[type]) s[type] = {};
+  s[type][`${recurringId}:${dateKey}`] = true;
+  saveRecurringSkipped(s);
+}
+
+// 날짜의 그 달 내 N번째 X요일 계산 (occurrence 1-4, isLast)
+function getOccurrenceInMonth(date) {
+  const d = date.getDate();
+  const occurrence = Math.ceil(d / 7);
+  const next = new Date(date);
+  next.setDate(d + 7);
+  const isLast = next.getMonth() !== date.getMonth();
+  return { occurrence, isLast };
+}
+
+function patternMatchesDate(pattern, date) {
+  if (!pattern) return false;
+  const wd = date.getDay();
+  if (pattern.type === 'weekly') {
+    return Array.isArray(pattern.weekdays) && pattern.weekdays.includes(wd);
+  }
+  if (pattern.type === 'biweekly') {
+    if (!Array.isArray(pattern.weekdays) || !pattern.weekdays.includes(wd)) return false;
+    if (!pattern.anchorMondayKey) return false;
+    const monday = getMondayOf(date);
+    const anchor = new Date(pattern.anchorMondayKey + 'T00:00:00');
+    const diffMs = monday.getTime() - anchor.getTime();
+    if (diffMs < 0) return false;
+    const diffWeeks = Math.round(diffMs / (1000 * 60 * 60 * 24 * 7));
+    return diffWeeks % 2 === 0;
+  }
+  if (pattern.type === 'monthly') {
+    if (pattern.weekday !== wd) return false;
+    const { occurrence, isLast } = getOccurrenceInMonth(date);
+    if (pattern.occurrence === 5) return isLast;
+    return pattern.occurrence === occurrence;
+  }
+  return false;
+}
+
+function _sortWeekdaysMonFirst(weekdays) {
+  return weekdays.slice().sort((a, b) => {
+    const order = (w) => w === 0 ? 7 : w;
+    return order(a) - order(b);
+  });
+}
+
+function patternToText(pattern) {
+  if (!pattern) return '';
+  if (pattern.type === 'weekly') {
+    if (!pattern.weekdays || pattern.weekdays.length === 0) return '(요일 없음)';
+    if (pattern.weekdays.length === 7) return '매일';
+    return '매주 ' + _sortWeekdaysMonFirst(pattern.weekdays).map(w => WEEKDAY_NAMES[w]).join(',') + '요일';
+  }
+  if (pattern.type === 'biweekly') {
+    if (!pattern.weekdays || pattern.weekdays.length === 0) return '(요일 없음)';
+    return '격주 ' + _sortWeekdaysMonFirst(pattern.weekdays).map(w => WEEKDAY_NAMES[w]).join(',') + '요일';
+  }
+  if (pattern.type === 'monthly') {
+    return `매월 ${OCCURRENCE_NAMES[pattern.occurrence] || '?'} ${WEEKDAY_NAMES[pattern.weekday]}요일`;
+  }
+  return '';
+}
+
+// ============== 공용 패턴 픽커 (클래스 기반) ==============
+// rootEl 안에 다음 구조가 있어야 함:
+//   .pattern-type-row (3개 radio: weekly / biweekly / monthly)
+//   .pattern-weekly-options > .weekday-picker
+//   .pattern-monthly-options > .pattern-occurrence + .pattern-monthly-weekday
+function setupPatternPicker(rootEl, pattern) {
+  if (!rootEl) return;
+  const p = pattern || { type: 'weekly', weekdays: [1] };
+  // 라디오 설정
+  rootEl.querySelectorAll('input[type="radio"]').forEach(r => {
+    r.checked = r.value === p.type;
+  });
+  togglePatternTypeUI(rootEl, p.type);
+  // 요일 버튼 (weekly/biweekly 공유)
+  const weekdays = (p.type === 'monthly') ? [] : (p.weekdays || []);
+  renderWeekdayPicker(rootEl.querySelector('.weekday-picker'), weekdays);
+  // monthly 옵션
+  if (p.type === 'monthly') {
+    rootEl.querySelector('.pattern-occurrence').value = p.occurrence || 1;
+    rootEl.querySelector('.pattern-monthly-weekday').value = (p.weekday !== undefined ? p.weekday : 1);
+  } else {
+    // 기본값
+    rootEl.querySelector('.pattern-occurrence').value = '1';
+    rootEl.querySelector('.pattern-monthly-weekday').value = '1';
+  }
+  // 라디오 변경 시 UI 토글 바인딩 (한 번만)
+  if (!rootEl.dataset.bound) {
+    rootEl.dataset.bound = '1';
+    rootEl.querySelectorAll('input[type="radio"]').forEach(r => {
+      r.addEventListener('change', () => togglePatternTypeUI(rootEl, r.value));
+    });
+  }
+}
+function togglePatternTypeUI(rootEl, type) {
+  const wOpts = rootEl.querySelector('.pattern-weekly-options');
+  const mOpts = rootEl.querySelector('.pattern-monthly-options');
+  if (wOpts) wOpts.style.display = (type === 'weekly' || type === 'biweekly') ? 'block' : 'none';
+  if (mOpts) mOpts.style.display = type === 'monthly' ? 'block' : 'none';
+}
+function renderWeekdayPicker(pickerEl, selected) {
+  if (!pickerEl) return;
+  pickerEl.innerHTML = '';
+  const order = [1,2,3,4,5,6,0];
+  order.forEach(wd => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'weekday-btn' + (selected.includes(wd) ? ' selected' : '');
+    btn.textContent = WEEKDAY_NAMES[wd];
+    btn.dataset.wd = wd;
+    btn.addEventListener('click', () => btn.classList.toggle('selected'));
+    pickerEl.appendChild(btn);
+  });
+}
+function getSelectedWeekdays(rootEl) {
+  return Array.from(rootEl.querySelectorAll('.weekday-picker .weekday-btn.selected'))
+    .map(b => parseInt(b.dataset.wd));
+}
+function readPatternFromPicker(rootEl, anchorMondayKey) {
+  const type = rootEl.querySelector('input[type="radio"]:checked').value;
+  if (type === 'weekly') {
+    const weekdays = getSelectedWeekdays(rootEl);
+    if (weekdays.length === 0) return { error: '요일을 하나 이상 선택하세요' };
+    return { pattern: { type: 'weekly', weekdays } };
+  }
+  if (type === 'biweekly') {
+    const weekdays = getSelectedWeekdays(rootEl);
+    if (weekdays.length === 0) return { error: '요일을 하나 이상 선택하세요' };
+    return { pattern: { type: 'biweekly', weekdays, anchorMondayKey: anchorMondayKey || formatDateKey(getMondayOf(currentDate)) } };
+  }
+  // monthly
+  return {
+    pattern: {
+      type: 'monthly',
+      occurrence: parseInt(rootEl.querySelector('.pattern-occurrence').value),
+      weekday: parseInt(rootEl.querySelector('.pattern-monthly-weekday').value),
+    }
+  };
+}
+
+// 자동 채우기: 일과계획 (날짜 단위)
+function materializeRecurringDaily(dateKey) {
+  const date = new Date(dateKey + 'T00:00:00');
+  const recurring = getRecurring();
+  if (!recurring.daily.length) return false;
+  const skipped = getRecurringSkipped();
+  const data = getDataForDate(dateKey);
+  let modified = false;
+  for (const tpl of recurring.daily) {
+    if (!patternMatchesDate(tpl.pattern, date)) continue;
+    if (skipped.daily[`${tpl.id}:${dateKey}`]) continue;
+    if ((data.planned || []).some(e => e.recurringId === tpl.id)) continue;
+    data.planned = data.planned || [];
+    data.planned.push({
+      id: uid(),
+      title: tpl.title,
+      start: tpl.startTime,
+      end: tpl.endTime,
+      color: tpl.color,
+      recurringId: tpl.id,
+    });
+    // 자동 todo 추가 (기존 일과계획 → todo 동기화 패턴 그대로)
+    const newTodoText = `${tpl.startTime} ${tpl.title}`;
+    if (!data.todos.some(t => t.text === newTodoText)) {
+      data.todos.push({ text: newTodoText, done: false });
+    }
+    modified = true;
+  }
+  if (modified) saveDataForDate(dateKey, data);
+  return modified;
+}
+
+// 자동 채우기: 주간업무 (월요일 기준, 그 주 7일)
+function materializeRecurringWeekly(monday) {
+  const recurring = getRecurring();
+  if (!recurring.weekly.length) return false;
+  const skipped = getRecurringSkipped();
+  const longterm = getLongTermTasks();
+  const weekStartKey = formatDateKey(monday);
+  let modified = false;
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(monday, i);
+    const dateKey = formatDateKey(date);
+    for (const tpl of recurring.weekly) {
+      if (!patternMatchesDate(tpl.pattern, date)) continue;
+      if (skipped.weekly[`${tpl.id}:${dateKey}`]) continue;
+      if (longterm.some(t => t.recurringId === tpl.id && t.targetDate === dateKey)) continue;
+      longterm.push({
+        id: uid(),
+        title: tpl.title,
+        targetDate: dateKey,
+        weekStart: weekStartKey,
+        done: false,
+        category: tpl.category || null,
+        assignees: tpl.assignees || [],
+        importance: tpl.importance || null,
+        urgent: tpl.urgent || false,
+        recurringId: tpl.id,
+      });
+      modified = true;
+    }
+  }
+  if (modified) saveLongTermTasks(longterm);
+  return modified;
+}
+
+// ============== 되풀이 — UI 모달 ==============
+let currentRecurringTab = 'daily';
+let currentEditingRecurring = null; // { type, item } or { type, item: null } for new
+let selectedRecurringColor = '#f5ead2';
+let pendingChoiceCallbacks = null; // { onThis, onAll }
+
+function openRecurringModal() {
+  currentRecurringTab = 'daily';
+  document.querySelectorAll('#recurring-tabs .settings-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.rtab === 'daily'));
+  renderRecurringList();
+  document.getElementById('recurring-modal').classList.add('active');
+}
+function closeRecurringModal() {
+  document.getElementById('recurring-modal').classList.remove('active');
+}
+
+function renderRecurringList() {
+  const list = document.getElementById('recurring-list');
+  const recurring = getRecurring();
+  const items = recurring[currentRecurringTab] || [];
+  list.innerHTML = '';
+  if (items.length === 0) {
+    list.innerHTML = '<div class="recurring-empty">등록된 되풀이가 없습니다.<br>아래 "+ 새 되풀이 추가" 버튼으로 시작하세요.</div>';
+    return;
+  }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'recurring-item';
+    let detail = '';
+    if (currentRecurringTab === 'daily') {
+      detail = `<span class="r-time">${escapeHtml(item.startTime)} ~ ${escapeHtml(item.endTime)}</span>`;
+    } else {
+      detail = item.category ? `<span class="r-cat">${escapeHtml(item.category)}</span>` : '';
+    }
+    div.innerHTML = `
+      <div class="r-main">
+        <div class="r-title">${escapeHtml(item.title)}</div>
+        <div class="r-meta">${detail}<span class="r-pattern">${escapeHtml(patternToText(item.pattern))}</span></div>
+      </div>
+      <button class="r-edit">편집</button>
+    `;
+    div.querySelector('.r-edit').addEventListener('click', () => {
+      openRecurringEditModal(currentRecurringTab, item);
+    });
+    list.appendChild(div);
+  });
+}
+
+function openRecurringEditModal(type, item) {
+  currentEditingRecurring = { type, item: item || null };
+  const isNew = !item;
+  document.getElementById('recurring-edit-title').textContent =
+    (type === 'daily' ? '시간 있는 일정' : '시간 없는 주간업무') + (isNew ? ' 추가' : ' 편집');
+  document.getElementById('recurring-edit-name').value = item?.title || '';
+  document.getElementById('recurring-edit-delete').style.display = item ? 'block' : 'none';
+
+  // daily-only fields
+  document.getElementById('recurring-edit-time-row').style.display = type === 'daily' ? 'block' : 'none';
+  document.getElementById('recurring-edit-color-row').style.display = type === 'daily' ? 'block' : 'none';
+  if (type === 'daily') {
+    document.getElementById('recurring-edit-start').value = item?.startTime || '12:00';
+    document.getElementById('recurring-edit-end').value = item?.endTime || '13:00';
+    selectedRecurringColor = item?.color || COLORS[0].bg;
+    renderRecurringColorRow();
+  }
+
+  // weekly-only fields
+  document.getElementById('recurring-edit-meta-rows').style.display = type === 'weekly' ? 'block' : 'none';
+  if (type === 'weekly') {
+    populateRecurringTaskSelects(item);
+  }
+
+  // pattern (공용 픽커)
+  const pattern = item?.pattern || { type: 'weekly', weekdays: [1] };
+  setupPatternPicker(document.getElementById('recurring-pattern-picker'), pattern);
+
+  document.getElementById('recurring-edit-modal').classList.add('active');
+}
+function closeRecurringEditModal() {
+  document.getElementById('recurring-edit-modal').classList.remove('active');
+  currentEditingRecurring = null;
+}
+
+function renderRecurringColorRow() {
+  const row = document.getElementById('recurring-edit-colors');
+  row.innerHTML = '';
+  let dividerInserted = false;
+  COLORS.forEach(c => {
+    if (c.special && !dividerInserted) {
+      const div = document.createElement('div');
+      div.className = 'color-divider';
+      row.appendChild(div);
+      dividerInserted = true;
+    }
+    if (c.special) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'color-meaning';
+      const dot = document.createElement('div');
+      dot.className = 'color-dot' + (c.bg === selectedRecurringColor ? ' selected' : '');
+      dot.style.background = c.bg;
+      dot.title = c.name;
+      dot.addEventListener('click', () => { selectedRecurringColor = c.bg; renderRecurringColorRow(); });
+      wrapper.appendChild(dot);
+      const label = document.createElement('div');
+      label.className = 'color-label';
+      label.textContent = c.name.split('—')[1].trim();
+      wrapper.appendChild(label);
+      row.appendChild(wrapper);
+    } else {
+      const dot = document.createElement('div');
+      dot.className = 'color-dot' + (c.bg === selectedRecurringColor ? ' selected' : '');
+      dot.style.background = c.bg;
+      dot.title = c.name;
+      dot.addEventListener('click', () => { selectedRecurringColor = c.bg; renderRecurringColorRow(); });
+      row.appendChild(dot);
+    }
+  });
+}
+
+function populateRecurringTaskSelects(item) {
+  const s = getSettings();
+  const cat = document.getElementById('recurring-edit-category');
+  cat.innerHTML = '<option value="">선택 안 함</option>' +
+    s.categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+  cat.value = item?.category || '';
+
+  const imp = document.getElementById('recurring-edit-importance');
+  imp.innerHTML = '<option value="">선택 안 함</option>' +
+    s.importance.map(i => `<option value="${escapeHtml(i)}">${escapeHtml(i)}</option>`).join('');
+  imp.value = item?.importance || '';
+
+  document.getElementById('recurring-edit-urgent').checked = !!(item?.urgent);
+
+  const selectedAssignees = new Set((item && Array.isArray(item.assignees)) ? item.assignees : []);
+  const div = document.getElementById('recurring-edit-assignees');
+  if (s.assignees.length === 0) {
+    div.innerHTML = '<div class="chip-empty">등록된 담당자가 없습니다 (설정에서 추가)</div>';
+  } else {
+    div.innerHTML = s.assignees.map(a => `
+      <label class="chip-opt${selectedAssignees.has(a) ? ' selected' : ''}">
+        <input type="checkbox" value="${escapeHtml(a)}" ${selectedAssignees.has(a) ? 'checked' : ''}>
+        <span>${escapeHtml(a)}</span>
+      </label>
+    `).join('');
+    div.querySelectorAll('.chip-opt').forEach(lbl => {
+      const cb = lbl.querySelector('input');
+      cb.addEventListener('change', () => lbl.classList.toggle('selected', cb.checked));
+    });
+  }
+}
+function getRecurringSelectedAssignees() {
+  return Array.from(document.querySelectorAll('#recurring-edit-assignees input:checked')).map(cb => cb.value);
+}
+
+function saveRecurringTemplate() {
+  if (!currentEditingRecurring) return;
+  const { type, item } = currentEditingRecurring;
+  const title = document.getElementById('recurring-edit-name').value.trim();
+  if (!title) { showToast('제목을 입력하세요'); return; }
+
+  const result = readPatternFromPicker(document.getElementById('recurring-pattern-picker'));
+  if (result.error) { showToast(result.error); return; }
+  const pattern = result.pattern;
+
+  const tpl = item ? { ...item } : { id: uid() };
+  tpl.title = title;
+  tpl.pattern = pattern;
+
+  if (type === 'daily') {
+    const start = document.getElementById('recurring-edit-start').value;
+    const end = document.getElementById('recurring-edit-end').value;
+    if (!start || !end) { showToast('시간을 입력하세요'); return; }
+    if (timeStrToMinutes(end) <= timeStrToMinutes(start)) { showToast('종료가 시작보다 늦어야 합니다'); return; }
+    tpl.startTime = start;
+    tpl.endTime = end;
+    tpl.color = selectedRecurringColor;
+  } else {
+    tpl.category = document.getElementById('recurring-edit-category').value || null;
+    tpl.importance = document.getElementById('recurring-edit-importance').value || null;
+    tpl.urgent = document.getElementById('recurring-edit-urgent').checked;
+    tpl.assignees = getRecurringSelectedAssignees();
+  }
+
+  const recurring = getRecurring();
+  if (item) {
+    const idx = recurring[type].findIndex(t => t.id === item.id);
+    if (idx >= 0) recurring[type][idx] = tpl;
+  } else {
+    recurring[type].push(tpl);
+  }
+  saveRecurring(recurring);
+
+  // 새 템플릿이면 현재 보고 있는 날짜/주에 즉시 반영
+  if (!item) {
+    if (type === 'daily') {
+      materializeRecurringDaily(formatDateKey(currentDate));
+      renderAll();
+    } else {
+      const monday = currentWeekStart || getMondayOf(new Date());
+      materializeRecurringWeekly(monday);
+      renderLongTerm();
+      if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
+    }
+  }
+
+  closeRecurringEditModal();
+  renderRecurringList();
+  showToast(item ? '되풀이 템플릿 수정됨' : '되풀이 템플릿 저장됨');
+}
+
+function deleteRecurringTemplate() {
+  if (!currentEditingRecurring || !currentEditingRecurring.item) return;
+  const { type, item } = currentEditingRecurring;
+  if (!confirm(`"${item.title}" 되풀이 템플릿을 완전히 삭제합니다.\n\n이미 자동 등록된 모든 날짜의 일정/업무도 함께 삭제됩니다.\n(개별 인스턴스를 사용자가 수동 편집해 detached 표시된 것은 유지)\n\n계속하시겠습니까?`)) return;
+
+  const recurring = getRecurring();
+  recurring[type] = recurring[type].filter(t => t.id !== item.id);
+  saveRecurring(recurring);
+
+  // 모든 인스턴스 삭제
+  if (type === 'daily') {
+    cleanupRecurringInstancesDaily(item.id, null);
+  } else {
+    const longterm = getLongTermTasks().filter(t => !(t.recurringId === item.id && !t.recurringDetached));
+    saveLongTermTasks(longterm);
+  }
+
+  // skip 기록 정리
+  const skipped = getRecurringSkipped();
+  Object.keys(skipped[type] || {}).forEach(k => {
+    if (k.startsWith(item.id + ':')) delete skipped[type][k];
+  });
+  saveRecurringSkipped(skipped);
+
+  closeRecurringEditModal();
+  renderRecurringList();
+  renderEvents('planned');
+  renderTodos();
+  renderLongTerm();
+  if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
+  showToast('되풀이 템플릿 + 인스턴스 모두 삭제됨');
+}
+
+// ============== Choice 모달 (본/모두) ==============
+function openChoiceModal(opts) {
+  // opts: { title, message, onThis, onAll }
+  document.getElementById('recurring-choice-title').textContent = opts.title || '되풀이 일정';
+  document.getElementById('recurring-choice-message').textContent = opts.message || '';
+  pendingChoiceCallbacks = opts;
+  document.getElementById('recurring-choice-modal').classList.add('active');
+}
+function closeChoiceModal() {
+  document.getElementById('recurring-choice-modal').classList.remove('active');
+  pendingChoiceCallbacks = null;
+}
+
+// 템플릿 삭제 시 모든 인스턴스 정리 (daily)
+function cleanupRecurringInstancesDaily(recurringId, modifyFields) {
+  // modifyFields가 있으면 update, 없으면 delete
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('worklog-')) continue;
+    // 날짜 키만: worklog-YYYY-MM-DD 형식
+    if (!/^worklog-\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+    try {
+      const data = JSON.parse(localStorage.getItem(key));
+      if (!Array.isArray(data.planned)) continue;
+      let changed = false;
+      if (modifyFields) {
+        // 모든 인스턴스 update (단, recurringDetached가 true인 것은 제외)
+        data.planned.forEach(e => {
+          if (e.recurringId === recurringId && !e.recurringDetached) {
+            // 변경 적용
+            const oldStart = e.start, oldTitle = e.title;
+            Object.assign(e, modifyFields);
+            // 매칭 todo 갱신
+            if (Array.isArray(data.todos)) {
+              const oldTodoText = `${oldStart} ${oldTitle}`;
+              const newTodoText = `${e.start} ${e.title}`;
+              const idx = data.todos.findIndex(t => t.text === oldTodoText);
+              if (idx >= 0) data.todos[idx].text = newTodoText;
+            }
+            changed = true;
+          }
+        });
+      } else {
+        // 모두 삭제
+        const before = data.planned.length;
+        data.planned = data.planned.filter(e => e.recurringId !== recurringId);
+        if (data.planned.length !== before) changed = true;
+      }
+      if (changed) localStorage.setItem(key, JSON.stringify(data));
+    } catch(e) {}
+  }
   if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
 }
 
@@ -1795,6 +2596,10 @@ function getSelectedAssignees() {
 // ============== 주간 업무 ==============
 function openWeeklyModal() {
   if (!currentWeekStart) currentWeekStart = getMondayOf(new Date());
+  // 되풀이 자동 채우기 (주간업무) — 그 주의 7일에 대해 매칭 항목 등록
+  if (typeof materializeRecurringWeekly === 'function') {
+    materializeRecurringWeekly(currentWeekStart);
+  }
   document.getElementById('weekly-modal').classList.add('active');
   renderWeekly();
 }
@@ -1877,6 +2682,7 @@ function createWeekTaskCard(task) {
   tDiv.className = 'week-task ' + status;
   tDiv.draggable = true;
   tDiv.dataset.id = task.id;
+  if (task.recurringId) tDiv.dataset.recurring = '1';
   tDiv.innerHTML = `
     <input type="checkbox" ${task.done ? 'checked' : ''}>
     <div class="t">
@@ -1899,6 +2705,11 @@ function createWeekTaskCard(task) {
   });
   tDiv.querySelector('.del-x').addEventListener('click', (e) => {
     e.stopPropagation();
+    if (task.recurringId && !task.recurringDetached) {
+      currentEditingLongterm = task;
+      deleteLongTerm();
+      return;
+    }
     saveLongTermTasks(getLongTermTasks().filter(t => t.id !== task.id));
     renderWeekly();
     renderLongTerm();
@@ -2076,12 +2887,37 @@ function openLongTermModal(task, presetDate, presetWeekStart) {
   // 신규 추가 시 금주업무 컬럼에서 호출됐으면 weekStart preset 저장 (saveLongTerm에서 사용)
   document.getElementById('longterm-modal').dataset.presetWeekStart = presetWeekStart || '';
   populateTaskSettingSelects();
+
+  // 되풀이 인라인 섹션 초기화
+  const rcCheckbox = document.getElementById('longterm-recurring');
+  const rcSection = document.getElementById('longterm-recurring-section');
+  let initialPattern = null;
+  if (task && task.recurringId && !task.recurringDetached) {
+    const recurring = getRecurring();
+    const tpl = recurring.weekly.find(t => t.id === task.recurringId);
+    if (tpl) {
+      initialPattern = tpl.pattern;
+      rcCheckbox.checked = true;
+      rcSection.style.display = 'block';
+    } else {
+      rcCheckbox.checked = false;
+      rcSection.style.display = 'none';
+    }
+  } else {
+    rcCheckbox.checked = false;
+    rcSection.style.display = 'none';
+  }
+  setupPatternPicker(document.getElementById('lt-pattern-picker'), initialPattern || { type: 'weekly', weekdays: [1] });
+
   setTimeout(() => document.getElementById('longterm-title').focus(), 50);
 }
 function closeLongTermModal() {
   document.getElementById('longterm-modal').classList.remove('active');
   currentEditingLongterm = null;
 }
+let pendingRecurringLongtermSaveScope = null;
+let pendingRecurringLongtermDeleteScope = null;
+
 function saveLongTerm() {
   const title = document.getElementById('longterm-title').value.trim();
   const targetDate = document.getElementById('longterm-target').value;
@@ -2092,26 +2928,150 @@ function saveLongTerm() {
   const urgent = document.getElementById('longterm-urgent').checked;
   const extra = { category, importance, assignees, urgent };
 
+  const editing = currentEditingLongterm;
+  const recurringChecked = document.getElementById('longterm-recurring').checked;
+  const wasRecurring = !!(editing && editing.recurringId && !editing.recurringDetached);
+
+  // 패턴 읽기 (체크된 경우만)
+  let newPattern = null;
+  if (recurringChecked) {
+    const refDateStr = targetDate || (editing && editing.targetDate) || formatDateKey(currentDate);
+    const refDate = new Date(refDateStr + 'T00:00:00');
+    const anchorMondayKey = formatDateKey(getMondayOf(refDate));
+    const result = readPatternFromPicker(document.getElementById('lt-pattern-picker'), anchorMondayKey);
+    if (result.error) { showToast(result.error); return; }
+    newPattern = result.pattern;
+  }
+
+  // CASE 2c: 원래 되풀이 + 여전히 체크 → 본/모두 prompt
+  if (editing && wasRecurring && recurringChecked && !pendingRecurringLongtermSaveScope) {
+    openChoiceModal({
+      title: '되풀이 주간업무 수정',
+      message: '본 업무만 변경하시겠습니까? 같은 되풀이로 등록된 모든 주간업무에도 적용할까요? (모두 선택 시 패턴 변경도 템플릿에 반영됨)',
+      onThis: () => { pendingRecurringLongtermSaveScope = 'this'; saveLongTerm(); },
+      onAll: () => { pendingRecurringLongtermSaveScope = 'all'; saveLongTerm(); },
+    });
+    return;
+  }
+  const scope = pendingRecurringLongtermSaveScope;
+  pendingRecurringLongtermSaveScope = null;
+
   const tasks = getLongTermTasks();
   const presetWeekStart = document.getElementById('longterm-modal').dataset.presetWeekStart || '';
-  if (currentEditingLongterm) {
-    const idx = tasks.findIndex(t => t.id === currentEditingLongterm.id);
-    if (idx >= 0) tasks[idx] = { ...currentEditingLongterm, title, targetDate, ...extra };
+
+  if (!editing) {
+    // 신규
+    if (recurringChecked) {
+      // 새 템플릿 생성 + 현재 주에 materialize
+      const tplId = uid();
+      const tpl = { id: tplId, title, ...extra, pattern: newPattern };
+      const recurring = getRecurring();
+      recurring.weekly.push(tpl);
+      saveRecurring(recurring);
+      const monday = currentWeekStart || getMondayOf(new Date());
+      materializeRecurringWeekly(monday);
+    } else {
+      const newTask = { id: uid(), title, targetDate, done: false, ...extra };
+      if (!targetDate && presetWeekStart) newTask.weekStart = presetWeekStart;
+      tasks.push(newTask);
+      saveLongTermTasks(tasks);
+    }
   } else {
-    const newTask = { id: uid(), title, targetDate, done: false, ...extra };
-    // 금주업무 컬럼에서 추가된 경우(targetDate 없음) weekStart 부여
-    if (!targetDate && presetWeekStart) newTask.weekStart = presetWeekStart;
-    tasks.push(newTask);
+    // 편집
+    const idx = tasks.findIndex(t => t.id === editing.id);
+    if (idx < 0) { closeLongTermModal(); return; }
+
+    if (wasRecurring && !recurringChecked) {
+      // 되풀이 해제 → detach
+      tasks[idx] = { ...editing, title, targetDate, ...extra, recurringDetached: true };
+      saveLongTermTasks(tasks);
+    } else if (!wasRecurring && recurringChecked) {
+      // 단일 → 새 템플릿 생성, 이 인스턴스를 첫 instance로 연결
+      const tplId = uid();
+      const tpl = { id: tplId, title, ...extra, pattern: newPattern };
+      const recurring = getRecurring();
+      recurring.weekly.push(tpl);
+      saveRecurring(recurring);
+      tasks[idx] = { ...editing, title, targetDate, ...extra, recurringId: tplId };
+      delete tasks[idx].recurringDetached;
+      saveLongTermTasks(tasks);
+      // 다른 날짜에도 채우기
+      const monday = currentWeekStart || getMondayOf(new Date());
+      materializeRecurringWeekly(monday);
+    } else if (wasRecurring && recurringChecked && scope === 'this') {
+      // 본만 → detach (패턴 변경 무시)
+      tasks[idx] = { ...editing, title, targetDate, ...extra, recurringDetached: true };
+      saveLongTermTasks(tasks);
+    } else if (wasRecurring && recurringChecked && scope === 'all') {
+      // 모두 → 템플릿 갱신 + 다른 인스턴스 전파 + 패턴 변경 반영
+      const recurring = getRecurring();
+      const tplIdx = recurring.weekly.findIndex(t => t.id === editing.recurringId);
+      if (tplIdx >= 0) {
+        recurring.weekly[tplIdx] = { ...recurring.weekly[tplIdx], title, ...extra, pattern: newPattern };
+        saveRecurring(recurring);
+      }
+      // 본 인스턴스 + 다른 인스턴스 모두 업데이트 (detached 제외)
+      tasks.forEach(t => {
+        if (t.recurringId === editing.recurringId && !t.recurringDetached) {
+          t.title = title;
+          t.category = extra.category;
+          t.importance = extra.importance;
+          t.assignees = extra.assignees;
+          t.urgent = extra.urgent;
+        }
+      });
+      // 본 인스턴스의 targetDate는 사용자가 변경했을 수 있으니 살림
+      tasks[idx].targetDate = targetDate;
+      saveLongTermTasks(tasks);
+    } else {
+      // (false, false): 단순 단일 업무 편집
+      tasks[idx] = { ...editing, title, targetDate, ...extra };
+      saveLongTermTasks(tasks);
+    }
   }
-  saveLongTermTasks(tasks);
+
   renderLongTerm();
   if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
   renderTodos();
   closeLongTermModal();
 }
+
 function deleteLongTerm() {
   if (!currentEditingLongterm) return;
-  saveLongTermTasks(getLongTermTasks().filter(t => t.id !== currentEditingLongterm.id));
+  const editing = currentEditingLongterm;
+
+  // 되풀이 인스턴스 → 본/모두 선택
+  if (editing.recurringId && !editing.recurringDetached && !pendingRecurringLongtermDeleteScope) {
+    openChoiceModal({
+      title: '되풀이 주간업무 삭제',
+      message: '본 업무만 삭제하시겠습니까? 같은 되풀이로 등록된 모든 주간업무도 삭제할까요?',
+      onThis: () => { pendingRecurringLongtermDeleteScope = 'this'; deleteLongTerm(); },
+      onAll: () => { pendingRecurringLongtermDeleteScope = 'all'; deleteLongTerm(); },
+    });
+    return;
+  }
+  const scope = pendingRecurringLongtermDeleteScope;
+  pendingRecurringLongtermDeleteScope = null;
+
+  if (scope === 'all' && editing.recurringId) {
+    // 템플릿 + 모든 인스턴스 삭제
+    const recurring = getRecurring();
+    recurring.weekly = recurring.weekly.filter(t => t.id !== editing.recurringId);
+    saveRecurring(recurring);
+    saveLongTermTasks(getLongTermTasks().filter(t => !(t.recurringId === editing.recurringId && !t.recurringDetached)));
+    const skipped = getRecurringSkipped();
+    Object.keys(skipped.weekly || {}).forEach(k => {
+      if (k.startsWith(editing.recurringId + ':')) delete skipped.weekly[k];
+    });
+    saveRecurringSkipped(skipped);
+  } else {
+    // 본 업무만 삭제 (skip 기록)
+    if (editing.recurringId && scope === 'this' && editing.targetDate) {
+      markRecurringSkipped('weekly', editing.recurringId, editing.targetDate);
+    }
+    saveLongTermTasks(getLongTermTasks().filter(t => t.id !== editing.id));
+  }
+
   renderLongTerm();
   if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
   renderTodos();
@@ -2999,6 +3959,7 @@ function renderEvents(type) {
     div.style.top = `${top}px`;
     div.style.height = `${height}px`;
     div.style.background = ev.color || COLORS[0].bg;
+    if (ev.recurringId) div.dataset.recurring = '1';
 
     div.innerHTML = `
       <button class="del-x">×</button>
@@ -3006,10 +3967,21 @@ function renderEvents(type) {
     `;
     div.querySelector('.del-x').addEventListener('click', (e) => {
       e.stopPropagation();
+      // 되풀이 인스턴스의 X 버튼 → editing 컨텍스트 만들고 deleteEvent 흐름 사용 (본/모두 prompt)
+      if (ev.recurringId && !ev.recurringDetached && type === 'planned') {
+        currentEditingEvent = { type, ev };
+        deleteEvent();
+        return;
+      }
       updateCurrentData(d => {
         d[type] = d[type].filter(x => x.id !== ev.id);
+        if (type === 'planned') {
+          const todoText = `${ev.start} ${ev.title}`;
+          d.todos = d.todos.filter(t => t.text !== todoText);
+        }
       });
       renderEvents(type);
+      if (type === 'planned') renderTodos();
     });
     div.addEventListener('click', () => {
       openEventModal(type, ev);
@@ -3099,6 +4071,35 @@ function openEventModal(type, ev, defaultStart, defaultEnd, presetTitle) {
   selectedColor = ev ? ev.color : getDefaultColor(type, defaultStart);
   renderColorRow();
   document.getElementById('event-delete').style.display = ev ? 'block' : 'none';
+
+  // 되풀이 인라인 섹션 — planned일 때만 노출, actual은 숨김
+  const wrapper = document.getElementById('event-recurring-wrapper');
+  const rcCheckbox = document.getElementById('event-recurring');
+  const rcSection = document.getElementById('event-recurring-section');
+  if (type === 'planned') {
+    wrapper.style.display = 'block';
+    let initialPattern = null;
+    if (ev && ev.recurringId && !ev.recurringDetached) {
+      const recurring = getRecurring();
+      const tpl = recurring.daily.find(t => t.id === ev.recurringId);
+      if (tpl) {
+        initialPattern = tpl.pattern;
+        rcCheckbox.checked = true;
+        rcSection.style.display = 'block';
+      } else {
+        rcCheckbox.checked = false;
+        rcSection.style.display = 'none';
+      }
+    } else {
+      rcCheckbox.checked = false;
+      rcSection.style.display = 'none';
+    }
+    setupPatternPicker(document.getElementById('ev-pattern-picker'), initialPattern || { type: 'weekly', weekdays: [1] });
+  } else {
+    wrapper.style.display = 'none';
+    rcCheckbox.checked = false;
+  }
+
   setTimeout(() => document.getElementById('event-title').focus(), 50);
 }
 
@@ -3152,6 +4153,8 @@ function renderColorRow() {
   });
 }
 
+let pendingRecurringEventScope = null; // 'this' | 'all' | null
+
 function saveEvent() {
   if (!currentEditingEvent) return;
   const title = document.getElementById('event-title').value.trim();
@@ -3163,16 +4166,84 @@ function saveEvent() {
 
   const { type, ev } = currentEditingEvent;
   const isNew = !ev;
+  const recurringChecked = (type === 'planned') && document.getElementById('event-recurring').checked;
+  const wasRecurring = !!(ev && ev.recurringId && !ev.recurringDetached);
+
+  // 패턴 읽기 (체크된 경우만)
+  let newPattern = null;
+  if (recurringChecked) {
+    const anchorMondayKey = formatDateKey(getMondayOf(currentDate));
+    const result = readPatternFromPicker(document.getElementById('ev-pattern-picker'), anchorMondayKey);
+    if (result.error) { showToast(result.error); return; }
+    newPattern = result.pattern;
+  }
+
+  // 원래 되풀이 + 여전히 체크 → 본/모두 prompt
+  if (ev && wasRecurring && recurringChecked && type === 'planned' && !pendingRecurringEventScope) {
+    openChoiceModal({
+      title: '되풀이 일정 수정',
+      message: '본 일정만 변경하시겠습니까? 같은 되풀이로 등록된 모든 일정에도 적용할까요? (모두 선택 시 패턴 변경도 템플릿에 반영됨)',
+      onThis: () => { pendingRecurringEventScope = 'this'; saveEvent(); },
+      onAll: () => { pendingRecurringEventScope = 'all'; saveEvent(); },
+    });
+    return;
+  }
+  const recurringScope = pendingRecurringEventScope;
+  pendingRecurringEventScope = null;
+
   // 드래그 출처 캡처 후 초기화 (모달 저장 후 원본 todo 삭제용)
   const dropSource = pendingTodoSourceForDrop;
   pendingTodoSourceForDrop = null;
 
+  // 신규 일정 + 되풀이 체크 → 새 템플릿 생성, 새 일정에 recurringId 부여
+  let newRecurringIdForNewEvent = null;
+  if (isNew && recurringChecked && type === 'planned') {
+    const tplId = uid();
+    const tpl = {
+      id: tplId,
+      title,
+      startTime: start,
+      endTime: end,
+      color: selectedColor,
+      pattern: newPattern,
+    };
+    const recurring = getRecurring();
+    recurring.daily.push(tpl);
+    saveRecurring(recurring);
+    newRecurringIdForNewEvent = tplId;
+  }
+
   updateCurrentData(d => {
     if (ev) {
       const idx = d[type].findIndex(x => x.id === ev.id);
-      if (idx >= 0) d[type][idx] = { ...ev, title, start, end, color: selectedColor };
+      if (idx >= 0) {
+        const updated = { ...ev, title, start, end, color: selectedColor };
+        // 되풀이 체크 변경에 따른 처리
+        if (type === 'planned') {
+          if (wasRecurring && !recurringChecked) {
+            // 되풀이 해제 → detach
+            updated.recurringDetached = true;
+          } else if (!wasRecurring && recurringChecked) {
+            // 단일 → 새 템플릿 만들고 이 일정에 연결
+            const tplId = uid();
+            const tpl = { id: tplId, title, startTime: start, endTime: end, color: selectedColor, pattern: newPattern };
+            const recurring = getRecurring();
+            recurring.daily.push(tpl);
+            saveRecurring(recurring);
+            updated.recurringId = tplId;
+            delete updated.recurringDetached;
+          } else if (wasRecurring && recurringChecked && recurringScope === 'this') {
+            // 본만 → detach (패턴 변경 무시)
+            updated.recurringDetached = true;
+          }
+          // (wasRecurring && recurringChecked && scope==='all'): 그대로 두고 아래 propagation에서 처리
+        }
+        d[type][idx] = updated;
+      }
     } else {
-      d[type].push({ id: uid(), title, start, end, color: selectedColor });
+      const newEv = { id: uid(), title, start, end, color: selectedColor };
+      if (newRecurringIdForNewEvent) newEv.recurringId = newRecurringIdForNewEvent;
+      d[type].push(newEv);
     }
     // 드래그 출처가 daily todo면 원본 삭제 (auto-add 전에)
     if (dropSource && dropSource.source === 'daily' && dropSource.text) {
@@ -3209,17 +4280,76 @@ function saveEvent() {
     if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
   }
 
+  // "모든 되풀이"로 변경 시: 템플릿 + 다른 인스턴스에 전파 (패턴 변경 포함)
+  if (recurringScope === 'all' && ev && ev.recurringId) {
+    const recurring = getRecurring();
+    const tplIdx = recurring.daily.findIndex(t => t.id === ev.recurringId);
+    if (tplIdx >= 0) {
+      const updatedTpl = { ...recurring.daily[tplIdx], title, startTime: start, endTime: end, color: selectedColor };
+      if (newPattern) updatedTpl.pattern = newPattern;
+      recurring.daily[tplIdx] = updatedTpl;
+      saveRecurring(recurring);
+    }
+    cleanupRecurringInstancesDaily(ev.recurringId, { title, start, end, color: selectedColor });
+  }
+
+  // 신규 일정 + 되풀이 → 다른 날짜에도 채우기
+  if (isNew && newRecurringIdForNewEvent) {
+    materializeRecurringDaily(formatDateKey(currentDate));
+  }
+
   renderEvents(type);
   if (type === 'planned') renderTodos();
   closeEventModal();
 }
 
+let pendingRecurringDeleteScope = null; // 'this' | 'all' | null
+
 function deleteEvent() {
   if (!currentEditingEvent || !currentEditingEvent.ev) return;
   const { type, ev } = currentEditingEvent;
-  updateCurrentData(d => {
-    d[type] = d[type].filter(x => x.id !== ev.id);
-  });
+
+  // 되풀이 인스턴스 삭제(planned만) → 본/모두 선택
+  if (ev.recurringId && !ev.recurringDetached && type === 'planned' && !pendingRecurringDeleteScope) {
+    openChoiceModal({
+      title: '되풀이 일정 삭제',
+      message: '본 일정만 삭제하시겠습니까? 같은 되풀이로 등록된 모든 일정도 삭제할까요?',
+      onThis: () => { pendingRecurringDeleteScope = 'this'; deleteEvent(); },
+      onAll: () => { pendingRecurringDeleteScope = 'all'; deleteEvent(); },
+    });
+    return;
+  }
+  const scope = pendingRecurringDeleteScope;
+  pendingRecurringDeleteScope = null;
+
+  if (scope === 'all' && ev.recurringId) {
+    // 템플릿 자체 삭제 + 모든 인스턴스 정리
+    const recurring = getRecurring();
+    recurring.daily = recurring.daily.filter(t => t.id !== ev.recurringId);
+    saveRecurring(recurring);
+    cleanupRecurringInstancesDaily(ev.recurringId, null);
+    // skip 정리
+    const skipped = getRecurringSkipped();
+    Object.keys(skipped.daily || {}).forEach(k => {
+      if (k.startsWith(ev.recurringId + ':')) delete skipped.daily[k];
+    });
+    saveRecurringSkipped(skipped);
+    renderTodos();
+  } else {
+    // 본 일정만 삭제 + skip 기록
+    if (ev.recurringId && scope === 'this') {
+      markRecurringSkipped('daily', ev.recurringId, formatDateKey(currentDate));
+    }
+    updateCurrentData(d => {
+      d[type] = d[type].filter(x => x.id !== ev.id);
+      // 매칭 todo도 삭제 (planned만)
+      if (type === 'planned') {
+        const todoText = `${ev.start} ${ev.title}`;
+        d.todos = d.todos.filter(t => t.text !== todoText);
+      }
+    });
+    if (type === 'planned') renderTodos();
+  }
   renderEvents(type);
   closeEventModal();
 }
@@ -3797,6 +4927,10 @@ function escapeHtml(str) {
 
 function renderAll() {
   renderHeader();
+  // 되풀이 자동 채우기 (일과계획) — idempotent: 이미 등록되었거나 skip 표시면 추가 안 함
+  if (typeof materializeRecurringDaily === 'function') {
+    materializeRecurringDaily(formatDateKey(currentDate));
+  }
   renderPriority();
   if (typeof autoPopulateDelayed === 'function') autoPopulateDelayed();
   if (typeof renderDelayed === 'function') renderDelayed();
@@ -4024,6 +5158,71 @@ function init() {
   document.addEventListener('click', (e) => {
     const dd = document.getElementById('summary-dropdown');
     if (!dd.hidden && !dd.contains(e.target)) closeSummaryDropdown();
+  });
+
+  // ============== 되풀이 모달 바인딩 ==============
+  // 인라인 되풀이 체크박스 토글 (longterm + event 모달 안)
+  document.getElementById('longterm-recurring').addEventListener('change', (e) => {
+    document.getElementById('longterm-recurring-section').style.display = e.target.checked ? 'block' : 'none';
+  });
+  document.getElementById('event-recurring').addEventListener('change', (e) => {
+    document.getElementById('event-recurring-section').style.display = e.target.checked ? 'block' : 'none';
+  });
+
+  document.getElementById('recurring-btn').addEventListener('click', openRecurringModal);
+  document.getElementById('recurring-close').addEventListener('click', closeRecurringModal);
+  document.getElementById('recurring-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'recurring-modal') closeRecurringModal();
+  });
+  document.querySelectorAll('#recurring-tabs .settings-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentRecurringTab = btn.dataset.rtab;
+      document.querySelectorAll('#recurring-tabs .settings-tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.rtab === currentRecurringTab));
+      renderRecurringList();
+    });
+  });
+  document.getElementById('recurring-add').addEventListener('click', () => {
+    openRecurringEditModal(currentRecurringTab, null);
+  });
+
+  // 편집 모달
+  document.getElementById('recurring-edit-cancel').addEventListener('click', closeRecurringEditModal);
+  document.getElementById('recurring-edit-save').addEventListener('click', saveRecurringTemplate);
+  document.getElementById('recurring-edit-delete').addEventListener('click', deleteRecurringTemplate);
+  document.getElementById('recurring-edit-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'recurring-edit-modal') closeRecurringEditModal();
+  });
+
+  // Choice 모달
+  document.getElementById('recurring-choice-this').addEventListener('click', () => {
+    const cb = pendingChoiceCallbacks;
+    closeChoiceModal();
+    if (cb && cb.onThis) cb.onThis();
+  });
+  document.getElementById('recurring-choice-all').addEventListener('click', () => {
+    const cb = pendingChoiceCallbacks;
+    closeChoiceModal();
+    if (cb && cb.onAll) cb.onAll();
+  });
+  document.getElementById('recurring-choice-cancel').addEventListener('click', closeChoiceModal);
+
+  // 주간 네비 시 자동 채우기 (이미 등록된 핸들러를 보강)
+  document.getElementById('week-prev').addEventListener('click', () => {
+    if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
+  });
+  document.getElementById('week-next').addEventListener('click', () => {
+    if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
+  });
+  document.getElementById('week-today').addEventListener('click', () => {
+    if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
+  });
+
+  // ESC 시 되풀이 모달도 같이 닫기
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeRecurringModal(); closeRecurringEditModal(); closeChoiceModal();
+    }
   });
 
   // 현재시간 라인 갱신
