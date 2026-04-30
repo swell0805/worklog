@@ -753,30 +753,20 @@
     .timeline-header { flex-wrap: wrap; padding: 10px 14px; }
     .timeline-header .legend { font-size: 11px; gap: 8px; flex-wrap: wrap; }
 
-    /* 편집용 + 버튼 숨김 (Todo + 만 노출) */
-    #add-achievement, #add-longterm { display: none !important; }
-    #add-todo {
+    /* + 버튼들 — 터치 친화적 사이즈 */
+    #add-todo, #add-achievement, #add-longterm {
       width: 30px; height: 30px; font-size: 18px;
       border-style: solid; opacity: 1;
     }
-
-    /* 보기 전용 영역 — 입력/탭 차단 */
-    .priority-item input, #achievement-list input {
-      pointer-events: none !important;
-      background: transparent !important;
+    /* 폰에서도 일정/업무 추가·편집·삭제 가능 (PC와 동일) */
+    /* del-x 버튼 항상 보이도록 (호버 없이도) */
+    #achievement-list .del-x,
+    .delayed-item .del-x,
+    .longterm-item .del-x {
+      opacity: 1 !important;
+      padding: 4px 10px;
+      font-size: 18px;
     }
-    #achievement-list .del-x { display: none !important; }
-    /* 이벤트(일과계획·실제실행) 탭해도 모달 안 열림 */
-    .event {
-      pointer-events: none !important;
-      cursor: default !important;
-    }
-    /* 지연업무·장기업무 카드 탭 차단 */
-    .delayed-item, .longterm-item {
-      pointer-events: none !important;
-      cursor: default !important;
-    }
-    .delayed-item .del-x, .longterm-item .del-x { display: none !important; }
 
     /* Todo — 터치 친화적 사이즈 */
     #todo-list .todo-item { padding: 10px 8px; gap: 8px; }
@@ -792,13 +782,19 @@
     /* Top Priority 체크박스도 약간 크게 (탭은 막혀 있어도 잘 보이게) */
     .priority-item input[type="checkbox"] { width: 20px; height: 20px; }
 
-    /* 모달 (동기화 모달 등) — 폰 화면에 맞춤 */
+    /* 모달 (동기화·일정·업무 등) — 폰 화면에 맞춤 + drag 잔재 위치 리셋 */
     .modal {
       padding: 18px;
       max-height: 85vh;
       overflow-y: auto;
       width: calc(100vw - 24px) !important;
       max-width: 480px !important;
+      /* PC에서 drag/resize로 저장된 inline left/top/position을 무효화 */
+      position: relative !important;
+      left: auto !important;
+      top: auto !important;
+      transform: none !important;
+      margin: 0 !important;
     }
 
     /* ===== 주간업무 모달 — 폰 전용 (전체화면 + 세로 스택) ===== */
@@ -830,9 +826,11 @@
     #weekly-modal .weekly-nav .week-range {
       min-width: 0; flex: 1; font-size: 13px;
     }
-    /* 편집/관리 버튼 숨김 */
-    #weekly-settings-btn { display: none !important; }
-    .day-add, .day-import { display: none !important; }
+    /* 자료가져오기는 PC 전용 (Claude Code 워크플로우) — 숨김 유지 */
+    .day-import { display: none !important; }
+    /* 주간 설정/추가 버튼은 폰에서도 표시 (편집 가능) */
+    #weekly-settings-btn { font-size: 12px; padding: 6px 10px; }
+    .day-add { font-size: 22px; padding: 4px 10px; }
 
     /* ===== 필터 — 아코디언 (탭 시 펼침) ===== */
     #weekly-modal .weekly-filters {
@@ -945,16 +943,16 @@
       max-height: none !important;
     }
 
-    /* 카드 — 보기 전용 (탭 시 모달 안 열림), 단 체크박스만 활성 */
-    #weekly-modal .week-task {
-      pointer-events: none;
-    }
+    /* 카드 — 폰에서도 탭하면 편집 모달, X로 삭제 가능 (PC와 동일) */
     #weekly-modal .week-task input[type="checkbox"] {
-      pointer-events: auto;
       width: 22px; height: 22px;
       cursor: pointer;
     }
-    #weekly-modal .week-task .del-x { display: none !important; }
+    #weekly-modal .week-task .del-x {
+      opacity: 1 !important;
+      padding: 4px 10px;
+      font-size: 18px;
+    }
 
     /* iOS 하단 안전영역 */
     body { padding-bottom: env(safe-area-inset-bottom); }
