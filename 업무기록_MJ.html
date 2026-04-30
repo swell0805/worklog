@@ -834,45 +834,91 @@
     #weekly-settings-btn { display: none !important; }
     .day-add, .day-import { display: none !important; }
 
-    /* 필터 — 라벨 위, 칩 아래로 / 칩은 가로 스크롤 / 터치 친화적 간격·크기 */
+    /* ===== 필터 — 아코디언 (탭 시 펼침) ===== */
     #weekly-modal .weekly-filters {
       padding: 8px 0;
       display: flex !important;
       flex-direction: column !important;
-      gap: 14px !important;
+      gap: 8px !important;
     }
-    #weekly-modal .filter-row {
+    /* 카테고리 row + 담당자/중요도/긴급 row 모두 세로 스택 */
+    #weekly-modal .weekly-filters .filter-row {
       flex-direction: column !important;
       align-items: stretch !important;
-      gap: 14px !important;
+      gap: 8px !important;
       margin-bottom: 0 !important;
       padding: 0 !important;
     }
-    #weekly-modal .filter-section {
+    /* 각 filter-section을 독립 블록으로 (assignee/imp/urgent) */
+    #weekly-modal .weekly-filters .filter-section {
       display: flex !important;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 8px;
+      flex-direction: column !important;
+      align-items: stretch !important;
+      gap: 0 !important;
+      flex: none !important;
     }
-    #weekly-modal .filter-label {
-      font-size: 13px; color: #3a2e24; font-weight: 600;
+    /* 라벨 = 아코디언 헤더 (탭 가능) */
+    #weekly-modal .weekly-filters .filter-label {
+      cursor: pointer;
+      padding: 14px 16px !important;
+      background: #faf5eb;
+      border: 1px solid #d4c5ae;
+      border-radius: 8px;
+      font-size: 15px !important;
+      font-weight: 600 !important;
+      color: #3a2e24 !important;
+      display: flex !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      width: 100% !important;
+      white-space: normal !important;
+      flex-shrink: 0 !important;
+      box-sizing: border-box !important;
+      user-select: none;
     }
+    #weekly-modal .weekly-filters .filter-label::after {
+      content: '▾';
+      color: #8c6d4f;
+      font-size: 14px;
+      margin-left: 8px;
+      transition: transform 0.15s;
+    }
+    #weekly-modal .weekly-filters .f-open > .filter-label,
+    #weekly-modal .weekly-filters .f-open .filter-label {
+      background: #ede2cf;
+      border-color: #8c6d4f;
+      border-radius: 8px 8px 0 0;
+    }
+    #weekly-modal .weekly-filters .f-open > .filter-label::after,
+    #weekly-modal .weekly-filters .f-open .filter-label::after {
+      content: '▴';
+    }
+
+    /* 칩 영역 — 기본은 숨김, .f-open일 때만 펼침 */
     #weekly-modal .weekly-filter-chips {
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-      padding: 4px 2px 8px;
-      display: flex !important;
-      flex-wrap: nowrap !important;
-      gap: 10px !important;
+      display: none !important;
     }
-    #weekly-modal .weekly-filter-chips .filter-chip {
+    #weekly-modal .weekly-filters .f-open .weekly-filter-chips {
+      display: flex !important;
+      flex-wrap: wrap !important;
+      overflow-x: visible !important;
+      overflow-y: visible !important;
+      white-space: normal !important;
+      gap: 10px !important;
+      padding: 14px !important;
+      background: #fdfaf3;
+      border: 1px solid #8c6d4f;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      flex: none !important;
+    }
+    #weekly-modal .weekly-filters .weekly-filter-chips .filter-chip {
       flex-shrink: 0;
       font-size: 14px;
       padding: 10px 18px;
       min-height: 44px;
       border-radius: 22px;
-      display: inline-flex;
+      display: inline-flex !important;
       align-items: center;
     }
 
@@ -5315,6 +5361,21 @@ function init() {
     if (cb && cb.onAll) cb.onAll();
   });
   document.getElementById('recurring-choice-cancel').addEventListener('click', closeChoiceModal);
+
+  // 폰 모드 — 주간업무 필터 아코디언 (라벨 탭 → 펼침/접힘, 다른 라벨 탭 시 자동 닫힘)
+  document.querySelectorAll('#weekly-modal .weekly-filters .filter-label').forEach(label => {
+    label.addEventListener('click', () => {
+      // 데스크톱(>768px)에선 비활성화
+      if (!window.matchMedia('(max-width: 768px)').matches) return;
+      const parent = label.closest('.filter-row, .filter-section');
+      if (!parent) return;
+      const wasOpen = parent.classList.contains('f-open');
+      // 다른 모든 항목 닫기
+      document.querySelectorAll('#weekly-modal .weekly-filters .f-open').forEach(el => el.classList.remove('f-open'));
+      // 토글
+      if (!wasOpen) parent.classList.add('f-open');
+    });
+  });
 
   // 주간 네비 시 자동 채우기 (이미 등록된 핸들러를 보강)
   document.getElementById('week-prev').addEventListener('click', () => {
