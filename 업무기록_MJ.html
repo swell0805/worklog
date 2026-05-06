@@ -31,10 +31,15 @@
     transition: background 0.15s;
   }
   .date-nav button:hover, .action-btn:hover { background: #5c4a38; }
-  .date-nav .weekday { color: #c9b89c; padding: 0 6px; font-size: 13px; min-width: 40px; text-align: center; }
   .date-nav .date-display {
     background: #f5efe4; color: #3a2e24; padding: 6px 14px; border-radius: 4px;
     cursor: pointer; font-weight: 500; position: relative;
+    display: inline-flex; align-items: baseline; gap: 8px;
+  }
+  .date-nav .date-display .date-text { font-variant-numeric: tabular-nums; }
+  .date-nav .date-display .weekday-text {
+    color: #8c6d4f; font-weight: 700; font-size: 14px;
+    padding: 2px 8px; background: #ede2cf; border-radius: 3px;
   }
   .date-nav input[type="date"] {
     position: absolute; opacity: 0; inset: 0; cursor: pointer; width: 100%;
@@ -728,11 +733,14 @@
     header h1 small { display: none; }
     .actions { gap: 6px; flex-wrap: wrap; }
     .date-nav { gap: 4px; flex-wrap: wrap; }
-    .date-nav .weekday { display: none; }
     .date-nav button, .action-btn {
       padding: 8px 12px; font-size: 13px; min-height: 36px;
     }
     .date-nav .date-display { padding: 8px 12px; }
+    /* 폰에서도 요일 표시 (날짜 다음에 보이게) */
+    .date-nav .date-display .weekday-text {
+      font-size: 13px; padding: 2px 8px;
+    }
     /* 편집용 헤더 버튼 숨김 (단, 주간업무는 폰에서도 표시 — 보기·필터 용도) */
     #summary-btn, #recurring-btn { display: none !important; }
 
@@ -965,9 +973,9 @@
   <h1>업무기록 <small>daily work log</small></h1>
   <div class="date-nav">
     <button id="prev-day">◀</button>
-    <span class="weekday" id="weekday">화요일</span>
     <span class="date-display" id="date-display">
-      April 21, 2026
+      <span class="date-text" id="date-text"></span>
+      <span class="weekday-text" id="weekday-text"></span>
       <input type="date" id="date-picker">
     </span>
     <button id="next-day">▶</button>
@@ -1469,8 +1477,9 @@ function formatDateCompact(d) {
   return formatDateKey(d).replace(/-/g, '');
 }
 function formatDateDisplay(d) {
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${mm}. ${dd}.`;
 }
 function formatWeekday(d) {
   const days = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
@@ -3659,8 +3668,8 @@ function updateCurrentData(mutator) {
 
 // ============== 렌더링: Header ==============
 function renderHeader() {
-  document.getElementById('date-display').firstChild.textContent = formatDateDisplay(currentDate) + ' ';
-  document.getElementById('weekday').textContent = formatWeekday(currentDate);
+  document.getElementById('date-text').textContent = formatDateDisplay(currentDate);
+  document.getElementById('weekday-text').textContent = formatWeekday(currentDate);
   document.getElementById('date-picker').value = formatDateKey(currentDate);
 }
 
