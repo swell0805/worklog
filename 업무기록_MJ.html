@@ -1328,11 +1328,23 @@
     <input type="text" id="recurring-edit-name" placeholder="예: 점심식사 / 주간업무회의 / 주간보고서">
 
     <div id="recurring-edit-time-row" style="display:none;">
-      <label>시간</label>
-      <div style="display:flex; gap:10px; align-items:center;">
-        <input type="time" id="recurring-edit-start" style="flex:1;">
-        <span>~</span>
-        <input type="time" id="recurring-edit-end" style="flex:1;">
+      <div class="time-row">
+        <div>
+          <label>시작</label>
+          <div class="time-select-row">
+            <div class="custom-select" id="recurring-edit-start-hour"></div>
+            <span>:</span>
+            <div class="custom-select" id="recurring-edit-start-min"></div>
+          </div>
+        </div>
+        <div>
+          <label>종료</label>
+          <div class="time-select-row">
+            <div class="custom-select" id="recurring-edit-end-hour"></div>
+            <span>:</span>
+            <div class="custom-select" id="recurring-edit-end-min"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1537,6 +1549,25 @@ function getTaskStatus(task) {
   const today = formatDateKey(new Date());
   if (task.targetDate < today) return 'overdue';
   return 'pending';
+}
+
+// done 토글 시 완료 날짜(`completedAt`) 함께 기록/제거
+// 다음 날부터 완료 항목을 자동 숨기기 위해 사용
+function applyDoneToggle(task, isDone) {
+  task.done = !!isDone;
+  if (isDone) {
+    task.completedAt = formatDateKey(new Date());
+  } else {
+    delete task.completedAt;
+  }
+}
+
+// 오늘 이후의 날에 들어왔을 때 (어제 이전에 완료한) 항목 숨김
+// done이지만 completedAt이 오늘과 다르면 (또는 없으면) 숨김
+function isVisibleByCompletion(task) {
+  if (!task.done) return true;
+  const todayKey = formatDateKey(new Date());
+  return task.completedAt === todayKey;
 }
 
 // ============== GitHub Gist 동기화 ==============
@@ -1854,7 +1885,7 @@ function autoPopulateDelayed() {
   if (changedProcessed) localStorage.setItem(processedKey, JSON.stringify([...processed]));
 }
 function renderDelayed() {
-  const tasks = getDelayedTasks();
+  const tasks = getDelayedTasks().filter(isVisibleByCompletion);
   const list = document.getElementById('delayed-list');
   if (!list) return;
   list.innerHTML = '';
@@ -1878,7 +1909,7 @@ function renderDelayed() {
       const all = getDelayedTasks();
       const idx = all.findIndex(t => t.id === task.id);
       if (idx >= 0) {
-        all[idx].done = check.checked;
+        applyDoneToggle(all[idx], check.checked);
         saveDelayedTasks(all);
         renderDelayed();
       }
@@ -1933,7 +1964,7 @@ function ddayClass(diff) {
   return '';
 }
 function renderLongTerm() {
-  const allTasks = getLongTermTasks();
+  const allTasks = getLongTermTasks().filter(isVisibleByCompletion);
   // 이번 주(월~금) 일정 + 이번 주 금주업무는 주간보기에 속하므로 장기업무 패널에서 제외
   const thisMonday = getMondayOf(new Date());
   const thisMondayKey = formatDateKey(thisMonday);
@@ -1977,7 +2008,7 @@ function renderLongTerm() {
       const all = getLongTermTasks();
       const idx = all.findIndex(t => t.id === task.id);
       if (idx >= 0) {
-        all[idx].done = check.checked;
+        applyDoneToggle(all[idx], check.checked);
         saveLongTermTasks(all);
         renderLongTerm();
       }
@@ -2331,8 +2362,8 @@ function openRecurringEditModal(type, item) {
   document.getElementById('recurring-edit-time-row').style.display = type === 'daily' ? 'block' : 'none';
   document.getElementById('recurring-edit-color-row').style.display = type === 'daily' ? 'block' : 'none';
   if (type === 'daily') {
-    document.getElementById('recurring-edit-start').value = item?.startTime || '12:00';
-    document.getElementById('recurring-edit-end').value = item?.endTime || '13:00';
+    setStartTime(item?.startTime || '12:00', 'recurring-edit');
+    refreshEndOptions(item?.endTime || '13:00', 'recurring-edit');
     selectedRecurringColor = item?.color || COLORS[0].bg;
     renderRecurringColorRow();
   }
@@ -2440,8 +2471,8 @@ function saveRecurringTemplate() {
   tpl.pattern = pattern;
 
   if (type === 'daily') {
-    const start = document.getElementById('recurring-edit-start').value;
-    const end = document.getElementById('recurring-edit-end').value;
+    const start = getTimeSelect('recurring-edit-start');
+    const end = getTimeSelect('recurring-edit-end');
     if (!start || !end) { showToast('시간을 입력하세요'); return; }
     if (timeStrToMinutes(end) <= timeStrToMinutes(start)) { showToast('종료가 시작보다 늦어야 합니다'); return; }
     tpl.startTime = start;
@@ -2859,7 +2890,7 @@ function createWeekTaskCard(task) {
     const all = getLongTermTasks();
     const i = all.findIndex(t => t.id === task.id);
     if (i >= 0) {
-      all[i].done = cb.checked;
+      applyDoneToggle(all[i], cb.checked);
       saveLongTermTasks(all);
       renderWeekly();
       renderLongTerm();
@@ -3535,46 +3566,48 @@ function selectOnChange(id, callback) {
 }
 document.addEventListener('click', closeAllCustomSelects);
 
-// ============== 시간 선택 로직 ==============
-function populateStartSelects() {
-  selectSetOptions('event-start-hour',
+// ============== 시간 선택 로직 (10분 단위, prefix로 다중 모달 지원) ==============
+function populateStartSelects(prefix) {
+  prefix = prefix || 'event';
+  selectSetOptions(`${prefix}-start-hour`,
     Array.from({length: 24}, (_, h) => ({ value: h, label: String(h).padStart(2, '0') }))
   );
-  selectSetOptions('event-start-min',
+  selectSetOptions(`${prefix}-start-min`,
     [0,10,20,30,40,50].map(m => ({ value: m, label: String(m).padStart(2, '0') }))
   );
 }
-function setStartTime(timeStr) {
+function setStartTime(timeStr, prefix) {
+  prefix = prefix || 'event';
   const [h, m] = timeStr.split(':').map(Number);
-  selectSetValue('event-start-hour', h);
+  selectSetValue(`${prefix}-start-hour`, h);
   let minRounded = Math.round(m / 10) * 10;
   if (minRounded >= 60) minRounded = 50;
-  selectSetValue('event-start-min', minRounded);
+  selectSetValue(`${prefix}-start-min`, minRounded);
 }
-function refreshEndOptions(desiredEndStr) {
-  const sH = parseInt(selectGetValue('event-start-hour'));
-  const sM = parseInt(selectGetValue('event-start-min'));
+function refreshEndOptions(desiredEndStr, prefix) {
+  prefix = prefix || 'event';
+  const sH = parseInt(selectGetValue(`${prefix}-start-hour`));
+  const sM = parseInt(selectGetValue(`${prefix}-start-min`));
 
   let desiredH = null, desiredM = null;
   if (desiredEndStr) {
     [desiredH, desiredM] = desiredEndStr.split(':').map(Number);
   } else {
-    const cur = selectGetValue('event-end-hour');
+    const cur = selectGetValue(`${prefix}-end-hour`);
     if (cur != null) {
       desiredH = parseInt(cur);
-      desiredM = parseInt(selectGetValue('event-end-min'));
+      desiredM = parseInt(selectGetValue(`${prefix}-end-min`));
     }
   }
 
   // 시작 분이 50이면 같은 시간엔 가능한 분 옵션이 없으므로 다음 시부터
   const minEndH = sM === 50 ? sH + 1 : sH;
 
-  // 종료 시: minEndH ~ 23 전체 (스크롤로 선택, 6개 정도만 보임)
   const hourOpts = [];
   for (let h = minEndH; h <= 23; h++) {
     hourOpts.push({ value: h, label: String(h).padStart(2, '0') });
   }
-  selectSetOptions('event-end-hour', hourOpts);
+  selectSetOptions(`${prefix}-end-hour`, hourOpts);
 
   let targetH;
   if (desiredH != null && desiredH >= minEndH && desiredH <= 23) {
@@ -3582,17 +3615,18 @@ function refreshEndOptions(desiredEndStr) {
   } else {
     targetH = Math.max(minEndH, Math.min(sH + 1, 23));
   }
-  selectSetValue('event-end-hour', targetH);
+  selectSetValue(`${prefix}-end-hour`, targetH);
 
-  refreshEndMinOptions(desiredM);
+  refreshEndMinOptions(desiredM, prefix);
 }
-function refreshEndMinOptions(desiredM) {
-  const sH = parseInt(selectGetValue('event-start-hour'));
-  const sM = parseInt(selectGetValue('event-start-min'));
-  const endH = parseInt(selectGetValue('event-end-hour'));
+function refreshEndMinOptions(desiredM, prefix) {
+  prefix = prefix || 'event';
+  const sH = parseInt(selectGetValue(`${prefix}-start-hour`));
+  const sM = parseInt(selectGetValue(`${prefix}-start-min`));
+  const endH = parseInt(selectGetValue(`${prefix}-end-hour`));
 
   if (desiredM == null) {
-    const cur = selectGetValue('event-end-min');
+    const cur = selectGetValue(`${prefix}-end-min`);
     if (cur != null) desiredM = parseInt(cur);
   }
 
@@ -3604,7 +3638,7 @@ function refreshEndMinOptions(desiredM) {
   }
   if (mins.length === 0) mins.push(0);
 
-  selectSetOptions('event-end-min', mins.map(m => ({ value: m, label: String(m).padStart(2, '0') })));
+  selectSetOptions(`${prefix}-end-min`, mins.map(m => ({ value: m, label: String(m).padStart(2, '0') })));
 
   let targetM;
   if (desiredM != null && mins.includes(desiredM)) {
@@ -3614,12 +3648,26 @@ function refreshEndMinOptions(desiredM) {
   } else {
     targetM = mins.includes(sM) ? sM : 0;
   }
-  selectSetValue('event-end-min', targetM);
+  selectSetValue(`${prefix}-end-min`, targetM);
 }
 function getTimeSelect(prefix) {
   const h = selectGetValue(`${prefix}-hour`);
   const m = selectGetValue(`${prefix}-min`);
   return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+// 시작 시간 변경 시 종료 시간 옵션 자동 재계산을 위한 onChange 체인 바인딩
+function bindTimeSelectChain(prefix) {
+  selectOnChange(`${prefix}-start-hour`, () => {
+    selectSetValue(`${prefix}-start-min`, 0);
+    const sH = parseInt(selectGetValue(`${prefix}-start-hour`));
+    const endTotal = Math.min(sH * 60 + 30, 23 * 60 + 50);
+    refreshEndOptions(minutesToTimeStr(endTotal), prefix);
+  });
+  selectOnChange(`${prefix}-start-min`, () => refreshEndOptions(undefined, prefix));
+  selectOnChange(`${prefix}-end-hour`, () => {
+    selectSetValue(`${prefix}-end-min`, 0);
+    refreshEndMinOptions(0, prefix);
+  });
 }
 
 // ============== 데이터 저장/로드 ==============
@@ -3905,6 +3953,36 @@ function renderAchievements() {
 }
 
 // ============== 렌더링: Timeline ==============
+// 자석 스냅 — drop 위치를 "앞 일정 끝"에 딱 붙임
+// 1) drop이 다른 일정 내부 → 그 일정의 end에 스냅
+// 2) drop 위쪽에 끝나는 일정이 gapThreshold 분 이내 → 그 end에 스냅
+// 3) 그 외 → 10분 그리드 스냅
+function computeMagneticStartMin(dropMin, events, excludeId, gapThreshold) {
+  if (gapThreshold == null) gapThreshold = 60;
+  const candidates = (events || []).filter(e =>
+    excludeId == null || e.id !== excludeId
+  );
+  // 1) drop이 다른 일정 안쪽 → 그 끝에 붙임
+  for (const e of candidates) {
+    const sMin = timeStrToMinutes(e.start);
+    const eMin = timeStrToMinutes(e.end);
+    if (sMin <= dropMin && dropMin < eMin) {
+      return eMin;
+    }
+  }
+  // 2) 위쪽 일정의 end가 gapThreshold 이내면 스냅
+  const above = candidates.filter(e => timeStrToMinutes(e.end) <= dropMin);
+  if (above.length > 0) {
+    const latest = above.reduce((p, c) =>
+      timeStrToMinutes(c.end) > timeStrToMinutes(p.end) ? c : p
+    );
+    const latestEnd = timeStrToMinutes(latest.end);
+    if (dropMin - latestEnd <= gapThreshold) return latestEnd;
+  }
+  // 3) 기본: 10분 그리드 스냅
+  return Math.round(dropMin / SNAP_MIN) * SNAP_MIN;
+}
+
 function buildTimelineGrid(containerId, type) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
@@ -3943,7 +4021,11 @@ function buildTimelineGrid(containerId, type) {
     row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
     row.addEventListener('drop', (e) => {
       row.classList.remove('drag-over');
-      // 1) Todo → 일과계획/실제실행
+      const rect = row.getBoundingClientRect();
+      const offsetY = e.clientY - rect.top;
+      const rawDropMin = h * 60 + Math.round(offsetY / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+
+      // 1) Todo → 일과계획/실제실행 (자석: 위쪽 일정 끝에 붙음)
       const text = e.dataTransfer.getData('application/x-worklog-todo');
       if (text) {
         e.preventDefault();
@@ -3953,89 +4035,70 @@ function buildTimelineGrid(containerId, type) {
         } else {
           pendingTodoSourceForDrop = null;
         }
-        const rect = row.getBoundingClientRect();
-        const offsetY = e.clientY - rect.top;
-        const startMin = h * 60 + Math.round(offsetY / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+        const data = getCurrentData();
+        const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], null, 60);
         openEventModal(type, null, startMin, startMin + 30, text);
         return;
       }
-      // 2) 일과계획 이벤트 드롭
+
+      // 2) 이벤트 드롭
       const eventJson = e.dataTransfer.getData('application/x-worklog-event');
       if (!eventJson) return;
       e.preventDefault();
       try {
         const evData = JSON.parse(eventJson);
-        const rect = row.getBoundingClientRect();
-        const offsetY = e.clientY - rect.top;
-        const dropMin = h * 60 + Math.round(offsetY / PX_PER_MIN / SNAP_MIN) * SNAP_MIN;
+        const data = getCurrentData();
 
-        // 같은 컬럼 내 이동 (일과계획 → 일과계획): 시간만 변경, duration 유지
-        if (type === 'planned' && evData.sourceType === 'planned' && evData.id) {
-          // 자석 스냅: 다른 이벤트의 끝 시각과 ±10분 이내면 그 끝에 붙임
-          const data = getCurrentData();
-          const others = (data.planned || []).filter(x => x.id !== evData.id);
-          let snappedDropMin = dropMin;
-          let bestDelta = Infinity;
-          for (const o of others) {
-            const oEnd = timeStrToMinutes(o.end);
-            const delta = Math.abs(oEnd - dropMin);
-            if (delta <= 10 && delta < bestDelta) {
-              snappedDropMin = oEnd;
-              bestDelta = delta;
-            }
-          }
-          const sMin = Math.max(0, Math.min(snappedDropMin, 23 * 60 + 50));
+        // 같은 컬럼 내 이동 (planned→planned 또는 actual→actual): 시간만 변경, duration 유지
+        if (type === evData.sourceType && evData.id) {
+          const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], evData.id, 60);
+          const sMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
           const duration = timeStrToMinutes(evData.end) - timeStrToMinutes(evData.start);
           const eMin = Math.min(sMin + duration, 23 * 60 + 50);
           const newStart = minutesToTimeStr(sMin);
           const newEnd = minutesToTimeStr(eMin);
           updateCurrentData(d => {
-            const i = d.planned.findIndex(x => x.id === evData.id);
+            const i = d[type].findIndex(x => x.id === evData.id);
             if (i >= 0) {
-              const oldStart = d.planned[i].start;
-              const oldTitle = d.planned[i].title;
-              d.planned[i].start = newStart;
-              d.planned[i].end = newEnd;
-              // To do list와 동기화 (시간 prefix 업데이트)
-              const oldTodoText = `${oldStart} ${oldTitle}`;
-              const newTodoText = `${newStart} ${oldTitle}`;
-              const tIdx = d.todos.findIndex(t => t.text === oldTodoText);
-              if (tIdx >= 0) d.todos[tIdx].text = newTodoText;
+              const oldStart = d[type][i].start;
+              const oldTitle = d[type][i].title;
+              d[type][i].start = newStart;
+              d[type][i].end = newEnd;
+              // 일과계획만 To do list와 시간 prefix 동기화
+              if (type === 'planned') {
+                const oldTodoText = `${oldStart} ${oldTitle}`;
+                const newTodoText = `${newStart} ${oldTitle}`;
+                const tIdx = d.todos.findIndex(t => t.text === oldTodoText);
+                if (tIdx >= 0) d.todos[tIdx].text = newTodoText;
+              }
             }
           });
-          renderEvents('planned');
-          renderTodos();
+          renderEvents(type);
+          if (type === 'planned') renderTodos();
           return;
         }
 
-        // 일과계획 → 실제실행: 복사 (자동 시간 정렬 + 초록 색상)
-        if (type !== 'actual') return;
-        const data = getCurrentData();
-        const eventsAbove = (data.actual || []).filter(e => timeStrToMinutes(e.end) <= dropMin);
-        let startMin;
-        if (eventsAbove.length > 0) {
-          const refEvent = eventsAbove.reduce((prev, cur) =>
-            timeStrToMinutes(cur.end) > timeStrToMinutes(prev.end) ? cur : prev
-          );
-          startMin = timeStrToMinutes(refEvent.end);
-        } else {
-          startMin = Math.round(dropMin / 30) * 30;
-        }
-        startMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
-        const duration = timeStrToMinutes(evData.end) - timeStrToMinutes(evData.start);
-        const endMin = Math.min(startMin + duration, 23 * 60 + 50);
-        const matchedColor = COLORS.find(c => c.special === 'matched');
-        const newColor = matchedColor ? matchedColor.bg : evData.color;
-        updateCurrentData(d => {
-          d.actual.push({
-            id: uid(),
-            title: evData.title,
-            start: minutesToTimeStr(startMin),
-            end: minutesToTimeStr(endMin),
-            color: newColor,
+        // 일과계획 → 실제실행: 복사 (자석 스냅 + 초록 색상)
+        if (evData.sourceType === 'planned' && type === 'actual') {
+          const startMin = computeMagneticStartMin(rawDropMin, data.actual || [], null, 60);
+          const sMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
+          const duration = timeStrToMinutes(evData.end) - timeStrToMinutes(evData.start);
+          const endMin = Math.min(sMin + duration, 23 * 60 + 50);
+          const matchedColor = COLORS.find(c => c.special === 'matched');
+          const newColor = matchedColor ? matchedColor.bg : evData.color;
+          updateCurrentData(d => {
+            d.actual.push({
+              id: uid(),
+              title: evData.title,
+              start: minutesToTimeStr(sMin),
+              end: minutesToTimeStr(endMin),
+              color: newColor,
+            });
           });
-        });
-        renderEvents('actual');
+          renderEvents('actual');
+          return;
+        }
+        // 실제실행 → 일과계획 등 다른 조합은 미지원 (의도적 제한)
       } catch (err) {}
     });
     container.appendChild(row);
@@ -4148,8 +4211,10 @@ function renderEvents(type) {
     div.addEventListener('click', () => {
       openEventModal(type, ev);
     });
-    // 일과계획 이벤트만 드래그 가능 (같은 컬럼 내 이동 / 실제실행/금일성과/Top Priority로 옮기기)
-    if (type === 'planned') {
+    // 일과계획 + 실제실행 이벤트 모두 드래그 가능
+    // 일과계획: 같은 컬럼 이동 / 실제실행으로 복사 / 금일성과·Top Priority로 옮기기
+    // 실제실행: 같은 컬럼 이동 (시간 변경)
+    if (type === 'planned' || type === 'actual') {
       div.draggable = true;
       div.addEventListener('dragstart', (e) => {
         e.stopPropagation();
@@ -5105,22 +5170,16 @@ function renderAll() {
 
 // ============== 초기화 ==============
 function init() {
-  // 커스텀 시간 선택 초기화
-  ['event-start-hour','event-start-min','event-end-hour','event-end-min'].forEach(initCustomSelect);
-  populateStartSelects();
-  // 시작 시간이 바뀌면 종료 옵션 갱신
-  // 시(hour) 변경 시에는 분(min)을 00으로 자동 리셋
-  selectOnChange('event-start-hour', () => {
-    selectSetValue('event-start-min', 0);
-    const sH = parseInt(selectGetValue('event-start-hour'));
-    const endTotal = Math.min(sH * 60 + 30, 23 * 60 + 50);
-    refreshEndOptions(minutesToTimeStr(endTotal));
-  });
-  selectOnChange('event-start-min', () => refreshEndOptions());
-  selectOnChange('event-end-hour', () => {
-    selectSetValue('event-end-min', 0);
-    refreshEndMinOptions(0);
-  });
+  // 커스텀 시간 선택 초기화 (일과계획 + 되풀이 모달 동일 방식)
+  [
+    'event-start-hour','event-start-min','event-end-hour','event-end-min',
+    'recurring-edit-start-hour','recurring-edit-start-min','recurring-edit-end-hour','recurring-edit-end-min',
+  ].forEach(initCustomSelect);
+  populateStartSelects('event');
+  populateStartSelects('recurring-edit');
+  // 시작 시간 변경 시 종료 옵션 자동 갱신 (양 모달 동일)
+  bindTimeSelectChain('event');
+  bindTimeSelectChain('recurring-edit');
 
   buildTimelineGrid('timeline-planned', 'planned');
   buildTimelineGrid('timeline-actual', 'actual');
