@@ -1395,9 +1395,10 @@
           <input type="date" id="ics-end-date">
         </div>
       </div>
-      <div style="display:flex; gap:8px; margin-top: 12px;">
+      <div style="display:flex; gap:8px; margin-top: 12px; flex-wrap: wrap;">
         <button id="ics-save-btn">URL 저장</button>
-        <button class="primary" id="ics-fetch-btn">📥 URL로 일정 조회</button>
+        <button class="primary" id="ics-fetch-btn">📥 URL로 자동 조회</button>
+        <button id="ics-open-url-btn" title="저장된 URL을 새 탭에 열어 .ics 다운로드">🔗 브라우저에서 URL 열기</button>
       </div>
     </div>
 
@@ -2306,11 +2307,12 @@ function icsRenderFromText(text, startStr, endStr) {
   renderOutlookPreview();
 }
 
-// 무료 CORS 프록시 목록 — 순차 시도, 첫 성공 시 사용
-const ICS_CORS_PROXIES = [
-  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-  (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+// 가져오기 시도 순서 — 직접 fetch 먼저 (CORS 허용 시 가장 빠름·안전), 실패 시 무료 프록시들 순차
+const ICS_FETCHERS = [
+  { name: '직접 fetch', url: (u) => u },
+  { name: 'allorigins', url: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name: 'corsproxy', url: (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+  { name: 'codetabs', url: (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}` },
 ];
 
 async function icsFetchEvents() {
@@ -2324,27 +2326,36 @@ async function icsFetchEvents() {
   const preview = document.getElementById('outlook-preview');
   const errors = [];
 
-  for (let i = 0; i < ICS_CORS_PROXIES.length; i++) {
-    const proxyFn = ICS_CORS_PROXIES[i];
-    preview.innerHTML = `<div class="outlook-empty">조회 중... 프록시 ${i + 1}/${ICS_CORS_PROXIES.length} 시도</div>`;
+  for (let i = 0; i < ICS_FETCHERS.length; i++) {
+    const f = ICS_FETCHERS[i];
+    preview.innerHTML = `<div class="outlook-empty">조회 중... ${escapeHtml(f.name)} (${i + 1}/${ICS_FETCHERS.length})</div>`;
     try {
-      const res = await fetch(proxyFn(url), { cache: 'no-store' });
-      if (!res.ok) { errors.push(`#${i+1}: HTTP ${res.status}`); continue; }
+      const res = await fetch(f.url(url), { cache: 'no-store' });
+      if (!res.ok) { errors.push(`${f.name}: HTTP ${res.status}`); continue; }
       const text = await res.text();
-      if (!text.includes('BEGIN:VCALENDAR')) { errors.push(`#${i+1}: ICS 형식 아님`); continue; }
+      if (!text.includes('BEGIN:VCALENDAR')) { errors.push(`${f.name}: ICS 형식 아님`); continue; }
       icsRenderFromText(text, startStr, endStr);
       return;
     } catch (err) {
-      errors.push(`#${i+1}: ${err.message || err}`);
+      errors.push(`${f.name}: ${err.message || err}`);
     }
   }
   preview.innerHTML = `
     <div class="outlook-empty" style="color:#b04040;">
-      모든 프록시 실패 (${ICS_CORS_PROXIES.length}개 시도)<br>
+      자동 조회 실패 (${ICS_FETCHERS.length}개 방식 모두 시도)<br>
       <small style="color:#6b5c4a;">${escapeHtml(errors.join(' / '))}</small><br><br>
-      <b>대안</b>: 위 "방법 2"에서 .ics 파일을 다운로드해서 직접 업로드하세요.
+      <b>대안</b>: 아래 "🔗 브라우저에서 URL 열기" 버튼으로 .ics를 다운로드한 뒤,<br>
+      파일 업로드 칸에 그 파일을 넣으면 작동합니다.
     </div>
   `;
+}
+
+// 저장된 URL을 새 탭에서 열기 — 브라우저가 .ics 파일 다운로드 (CORS 우회)
+function icsOpenUrlInBrowser() {
+  const url = getIcsUrl();
+  if (!url) { showToast('먼저 URL을 입력·저장하세요'); return; }
+  window.open(url, '_blank', 'noopener');
+  showToast('새 탭에서 .ics 다운로드됩니다. Downloads 폴더의 파일을 아래 업로드 칸에 넣어주세요.');
 }
 
 async function icsHandleFileUpload(file) {
@@ -5958,6 +5969,7 @@ function init() {
   // ICS URL 모드
   document.getElementById('ics-save-btn').addEventListener('click', icsSaveUrl);
   document.getElementById('ics-fetch-btn').addEventListener('click', icsFetchEvents);
+  document.getElementById('ics-open-url-btn').addEventListener('click', icsOpenUrlInBrowser);
   document.getElementById('ics-file-input').addEventListener('change', (e) => {
     const file = e.target.files && e.target.files[0];
     if (file) icsHandleFileUpload(file);
