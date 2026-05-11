@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="업무기록">
+<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; background: #f5efe4; color: #3a2e24; font-size: 14px; }
@@ -707,6 +708,40 @@
   .weekday-btn.selected {
     background: #8c6d4f; color: #faf5eb; border-color: #8c6d4f;
   }
+  /* ============ Outlook 캘린더 가져오기 ============ */
+  .outlook-event-list {
+    max-height: 360px; overflow-y: auto;
+    border: 1px solid #e0d5c3; border-radius: 4px; background: #fdfaf3;
+  }
+  .outlook-event-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border-bottom: 1px solid #ede2cf;
+  }
+  .outlook-event-row:last-child { border-bottom: none; }
+  .outlook-event-row.disabled { opacity: 0.55; background: #f5efe4; }
+  .outlook-event-row input[type="checkbox"] {
+    width: 18px; height: 18px; cursor: pointer; accent-color: #8c6d4f;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .outlook-event-row .oe-main { flex: 1; min-width: 0; }
+  .outlook-event-row .oe-title {
+    font-size: 14px; color: #3a2e24; font-weight: 500; margin-bottom: 3px;
+  }
+  .outlook-event-row .oe-meta {
+    font-size: 12px; color: #6b5c4a;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .outlook-event-row .oe-time {
+    background: #ede2cf; padding: 2px 8px; border-radius: 3px;
+    font-family: 'Consolas', monospace;
+  }
+  .outlook-event-row .oe-skip {
+    color: #b04040; font-size: 11px; margin-top: 4px;
+  }
+  .outlook-empty {
+    padding: 30px; text-align: center; color: #a89a84;
+    font-size: 13px; font-style: italic;
+  }
   /* 되풀이 인스턴스 표시 — 일과 이벤트 우측 위 점 */
   .event[data-recurring="1"]::after {
     content: '🔁'; position: absolute; top: 2px; right: 4px;
@@ -742,7 +777,8 @@
       font-size: 13px; padding: 2px 8px;
     }
     /* 편집용 헤더 버튼 숨김 (단, 주간업무는 폰에서도 표시 — 보기·필터 용도) */
-    #summary-btn, #recurring-btn { display: none !important; }
+    /* Outlook은 PC 전용 (Microsoft 로그인 팝업이 폰에선 어색) */
+    #summary-btn, #recurring-btn, #outlook-btn { display: none !important; }
 
     /* 메인 — 세로 스택, 페이지 자체 스크롤 사용 */
     main { flex-direction: column; height: auto; overflow: visible; }
@@ -983,6 +1019,7 @@
   </div>
   <div class="actions">
     <button class="action-btn" id="weekly-btn">📅 주간업무</button>
+    <button class="action-btn" id="outlook-btn">📅 Outlook</button>
     <button class="action-btn" id="recurring-btn">🔁 되풀이 목록</button>
     <button class="action-btn" id="sync-btn">☁ 동기화<span class="sync-badge" id="sync-badge"></span></button>
     <button class="action-btn primary" id="summary-btn">📝 업무 정리</button>
@@ -1300,6 +1337,76 @@
       <button id="longterm-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
       <button id="longterm-cancel">취소</button>
       <button class="primary" id="longterm-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Outlook 캘린더 가져오기 모달 -->
+<div class="modal-backdrop" id="outlook-modal">
+  <div class="modal" style="width: 640px;">
+    <h2>📅 Outlook 캘린더 가져오기</h2>
+
+    <!-- 1단계: 설정 (Client ID 미입력 시) -->
+    <div id="outlook-config-section" hidden>
+      <p style="font-size:13px; color:#5c4a38; line-height:1.6;">
+        Azure AD에서 받은 <b>Client ID</b>를 입력하세요. (1회만 — 모든 기기에서 같은 ID 사용)<br>
+        <span style="color:#8c6d4f;">아래 "📖 Azure AD 설정 가이드 보기"로 받는 법 확인 가능</span>
+      </p>
+      <details style="margin: 8px 0;">
+        <summary style="cursor:pointer; color:#8c6d4f; font-size:13px;">📖 Azure AD 설정 가이드 보기</summary>
+        <ol style="margin: 10px 0 0 18px; font-size: 12px; line-height: 1.7; color: #3a2e24;">
+          <li><a href="https://portal.azure.com" target="_blank">Azure Portal</a> 접속 (회사 Microsoft 계정으로 로그인)</li>
+          <li>상단 검색창에 <b>App registrations</b> → 클릭</li>
+          <li><b>+ New registration</b> 클릭</li>
+          <li>이름: <code>업무기록 worklog</code> (자유)</li>
+          <li>지원 계정 유형: <b>Accounts in any organizational directory and personal Microsoft accounts</b></li>
+          <li>Redirect URI: <b>Single-page application (SPA)</b> 선택, URL은 <code id="outlook-redirect-uri-display">(앱 URL)</code></li>
+          <li><b>Register</b> 클릭</li>
+          <li>등록 후 표시되는 <b>Application (client) ID</b> 값 복사 → 아래 입력</li>
+          <li>좌측 <b>API permissions</b> → <b>+ Add a permission</b> → Microsoft Graph → Delegated → <b>Calendars.Read</b> 체크 → Add</li>
+          <li>회사 계정이면 <b>Grant admin consent</b> 버튼이 보일 수 있음 — IT 도움 필요</li>
+        </ol>
+      </details>
+      <label>Client ID (필수)</label>
+      <input type="text" id="outlook-client-id-input" placeholder="00000000-0000-0000-0000-000000000000">
+      <label>Tenant (선택, 기본 <code>common</code>)</label>
+      <input type="text" id="outlook-tenant-input" placeholder="common 또는 회사 tenant ID">
+    </div>
+
+    <!-- 2단계: 로그인 (Client ID 있고 미로그인 시) -->
+    <div id="outlook-login-section" hidden>
+      <p style="font-size:13px; color:#5c4a38;">
+        Microsoft 계정으로 로그인하면 캘린더 일정을 가져올 수 있습니다.
+      </p>
+      <button class="primary" id="outlook-login-btn" style="margin-top: 12px; padding: 12px 20px;">🔐 Microsoft 로그인</button>
+    </div>
+
+    <!-- 3단계: 가져오기 (로그인 후) -->
+    <div id="outlook-fetch-section" hidden>
+      <p style="font-size:13px; color:#5c4a38;">
+        로그인됨: <b id="outlook-user-display">-</b>
+      </p>
+      <div class="time-row" style="margin-top: 12px;">
+        <div>
+          <label>시작 날짜</label>
+          <input type="date" id="outlook-start-date">
+        </div>
+        <div>
+          <label>종료 날짜</label>
+          <input type="date" id="outlook-end-date">
+        </div>
+      </div>
+      <button class="primary" id="outlook-fetch-btn" style="margin-top: 12px; padding: 10px 16px;">📥 일정 조회</button>
+
+      <div id="outlook-preview" style="margin-top: 14px;"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="outlook-config-edit-btn" style="margin-right:auto;" hidden>설정 변경</button>
+      <button id="outlook-logout-btn" style="color:#b04040;border-color:#b04040;" hidden>로그아웃</button>
+      <button id="outlook-config-save-btn" class="primary" hidden>저장</button>
+      <button id="outlook-import-btn" class="primary" hidden>선택한 일정 가져오기</button>
+      <button id="outlook-cancel-btn">닫기</button>
     </div>
   </div>
 </div>
@@ -1731,6 +1838,277 @@ function openSyncModal() {
   const token = getSyncToken();
   tokenInput.value = token ? '●'.repeat(20) + token.slice(-4) : '';
   updateSyncInfo();
+}
+
+// ============== Outlook (Microsoft Graph) ==============
+let msalInstance = null;
+let outlookAccount = null;
+let lastOutlookEvents = []; // 미리보기 렌더된 events (import 시 참조)
+
+function getOutlookConfig() {
+  return {
+    clientId: localStorage.getItem('outlook-client-id') || '',
+    tenant: localStorage.getItem('outlook-tenant') || 'common',
+  };
+}
+function saveOutlookConfig(clientId, tenant) {
+  localStorage.setItem('outlook-client-id', clientId.trim());
+  localStorage.setItem('outlook-tenant', (tenant || 'common').trim());
+}
+function getOutlookImportedIds() {
+  try { return new Set(JSON.parse(localStorage.getItem('outlook-imported-ids') || '[]')); }
+  catch(e) { return new Set(); }
+}
+function saveOutlookImportedIds(set) {
+  localStorage.setItem('outlook-imported-ids', JSON.stringify([...set]));
+}
+
+function initMSAL() {
+  if (typeof msal === 'undefined') return null;
+  const cfg = getOutlookConfig();
+  if (!cfg.clientId) return null;
+  if (msalInstance) return msalInstance;
+  // redirectUri는 현재 페이지 (origin + pathname)
+  const redirectUri = window.location.origin + window.location.pathname;
+  msalInstance = new msal.PublicClientApplication({
+    auth: {
+      clientId: cfg.clientId,
+      authority: `https://login.microsoftonline.com/${cfg.tenant}`,
+      redirectUri: redirectUri,
+    },
+    cache: {
+      cacheLocation: 'localStorage',
+      storeAuthStateInCookie: false,
+    },
+  });
+  const accounts = msalInstance.getAllAccounts();
+  if (accounts.length > 0) {
+    outlookAccount = accounts[0];
+    msalInstance.setActiveAccount(outlookAccount);
+  }
+  return msalInstance;
+}
+
+function openOutlookModal() {
+  document.getElementById('outlook-modal').classList.add('active');
+  // redirect URI 표시 (가이드 안에서 참조)
+  const uriEl = document.getElementById('outlook-redirect-uri-display');
+  if (uriEl) uriEl.textContent = window.location.origin + window.location.pathname;
+  initMSAL();
+  renderOutlookSections();
+}
+function closeOutlookModal() {
+  document.getElementById('outlook-modal').classList.remove('active');
+  lastOutlookEvents = [];
+}
+function renderOutlookSections() {
+  const cfg = getOutlookConfig();
+  const hasConfig = !!cfg.clientId;
+  const isLoggedIn = hasConfig && !!outlookAccount;
+
+  document.getElementById('outlook-config-section').hidden = hasConfig;
+  document.getElementById('outlook-login-section').hidden = !hasConfig || isLoggedIn;
+  document.getElementById('outlook-fetch-section').hidden = !isLoggedIn;
+
+  document.getElementById('outlook-config-save-btn').hidden = hasConfig;
+  document.getElementById('outlook-config-edit-btn').hidden = !hasConfig;
+  document.getElementById('outlook-logout-btn').hidden = !isLoggedIn;
+  document.getElementById('outlook-import-btn').hidden = true; // fetch 후에만 표시
+
+  if (hasConfig) {
+    document.getElementById('outlook-client-id-input').value = cfg.clientId;
+    document.getElementById('outlook-tenant-input').value = cfg.tenant;
+  }
+  if (isLoggedIn) {
+    document.getElementById('outlook-user-display').textContent =
+      outlookAccount.username || outlookAccount.name || '(이름 없음)';
+    // 기본 날짜 범위: 오늘
+    const todayKey = formatDateKey(new Date());
+    if (!document.getElementById('outlook-start-date').value) {
+      document.getElementById('outlook-start-date').value = todayKey;
+    }
+    if (!document.getElementById('outlook-end-date').value) {
+      document.getElementById('outlook-end-date').value = todayKey;
+    }
+  }
+}
+
+async function outlookLogin() {
+  const m = initMSAL();
+  if (!m) { showToast('Client ID를 먼저 입력하세요'); return; }
+  try {
+    const result = await m.loginPopup({ scopes: ['Calendars.Read', 'User.Read'], prompt: 'select_account' });
+    outlookAccount = result.account;
+    m.setActiveAccount(outlookAccount);
+    renderOutlookSections();
+    showToast('Microsoft 로그인 성공');
+  } catch (err) {
+    showToast('로그인 실패: ' + (err.errorMessage || err.message));
+  }
+}
+async function outlookLogout() {
+  if (!msalInstance || !outlookAccount) return;
+  try {
+    await msalInstance.logoutPopup({ account: outlookAccount });
+  } catch (err) { /* ignore */ }
+  outlookAccount = null;
+  renderOutlookSections();
+  showToast('로그아웃됨');
+}
+async function outlookGetToken() {
+  const m = initMSAL();
+  if (!m || !outlookAccount) return null;
+  try {
+    const r = await m.acquireTokenSilent({ scopes: ['Calendars.Read'], account: outlookAccount });
+    return r.accessToken;
+  } catch (err) {
+    if (err && err.name === 'InteractionRequiredAuthError') {
+      const r = await m.acquireTokenPopup({ scopes: ['Calendars.Read'], account: outlookAccount });
+      return r.accessToken;
+    }
+    throw err;
+  }
+}
+
+async function outlookFetchEvents() {
+  const startStr = document.getElementById('outlook-start-date').value;
+  const endStr = document.getElementById('outlook-end-date').value;
+  if (!startStr || !endStr) { showToast('시작/종료 날짜 선택 필요'); return; }
+  if (startStr > endStr) { showToast('종료가 시작 이후여야 합니다'); return; }
+
+  const preview = document.getElementById('outlook-preview');
+  preview.innerHTML = '<div class="outlook-empty">조회 중...</div>';
+
+  try {
+    const token = await outlookGetToken();
+    if (!token) { showToast('로그인 토큰 획득 실패'); return; }
+    // KST 기준으로 시작/종료
+    const startISO = new Date(startStr + 'T00:00:00').toISOString();
+    const endISO = new Date(endStr + 'T23:59:59').toISOString();
+    const url = `https://graph.microsoft.com/v1.0/me/calendarview` +
+      `?startDateTime=${encodeURIComponent(startISO)}&endDateTime=${encodeURIComponent(endISO)}` +
+      `&$select=id,subject,start,end,location,isAllDay,bodyPreview&$top=200&$orderby=start/dateTime`;
+    const res = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Prefer': 'outlook.timezone="Korea Standard Time"',
+      },
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">조회 실패 (HTTP ${res.status})<br><small>${escapeHtml(t.slice(0, 300))}</small></div>`;
+      return;
+    }
+    const data = await res.json();
+    lastOutlookEvents = data.value || [];
+    renderOutlookPreview();
+  } catch (err) {
+    preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">에러: ${escapeHtml(err.message || String(err))}</div>`;
+  }
+}
+
+function renderOutlookPreview() {
+  const preview = document.getElementById('outlook-preview');
+  const importBtn = document.getElementById('outlook-import-btn');
+  const events = lastOutlookEvents || [];
+  if (events.length === 0) {
+    preview.innerHTML = '<div class="outlook-empty">조회된 일정이 없습니다.</div>';
+    importBtn.hidden = true;
+    return;
+  }
+  const importedIds = getOutlookImportedIds();
+  const rows = events.map((ev, idx) => {
+    const allDay = !!ev.isAllDay;
+    const already = importedIds.has(ev.id);
+    // start.dateTime은 KST 기준 (Prefer 헤더 덕분에) — "2026-05-07T13:00:00.0000000" 형태
+    const startDT = (ev.start && ev.start.dateTime) || '';
+    const endDT = (ev.end && ev.end.dateTime) || '';
+    const dateStr = startDT.slice(0, 10);
+    const startTime = startDT.slice(11, 16);
+    const endTime = endDT.slice(11, 16);
+    const loc = (ev.location && ev.location.displayName) || '';
+    const reasons = [];
+    if (allDay) reasons.push('하루 종일 일정');
+    if (already) reasons.push('이미 가져옴');
+    if (!startTime || !endTime) reasons.push('시간 정보 없음');
+    const disabled = reasons.length > 0;
+    return `
+      <div class="outlook-event-row${disabled ? ' disabled' : ''}">
+        <input type="checkbox" data-idx="${idx}" ${disabled ? 'disabled' : 'checked'}>
+        <div class="oe-main">
+          <div class="oe-title">${escapeHtml(ev.subject || '(제목 없음)')}</div>
+          <div class="oe-meta">
+            <span class="oe-time">${dateStr} ${startTime}~${endTime}</span>
+            ${loc ? `<span>📍 ${escapeHtml(loc)}</span>` : ''}
+          </div>
+          ${reasons.length ? `<div class="oe-skip">${reasons.join(', ')} — 제외됨</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+  preview.innerHTML = `<div class="outlook-event-list">${rows}</div>`;
+  importBtn.hidden = false;
+}
+
+function outlookImportSelected() {
+  const checkboxes = document.querySelectorAll('#outlook-preview input[type="checkbox"]:checked');
+  if (checkboxes.length === 0) { showToast('가져올 일정을 선택하세요'); return; }
+  const importedIds = getOutlookImportedIds();
+  const importColor = '#d8e3ec'; // 스카이 — Outlook 가져온 일정 표시
+  let count = 0;
+  // 날짜별로 그룹핑 (한 날짜 데이터 한 번만 read/write)
+  const byDate = {};
+  checkboxes.forEach(cb => {
+    const idx = parseInt(cb.dataset.idx);
+    const ev = lastOutlookEvents[idx];
+    if (!ev) return;
+    const startDT = (ev.start && ev.start.dateTime) || '';
+    const endDT = (ev.end && ev.end.dateTime) || '';
+    const dateStr = startDT.slice(0, 10);
+    const startTime = startDT.slice(11, 16);
+    const endTime = endDT.slice(11, 16);
+    if (!dateStr || !startTime || !endTime) return;
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push({
+      id: uid(),
+      title: ev.subject || '(제목 없음)',
+      start: startTime,
+      end: endTime,
+      color: importColor,
+      outlookEventId: ev.id,
+    });
+    importedIds.add(ev.id);
+    count++;
+  });
+  Object.entries(byDate).forEach(([dateKey, newEvents]) => {
+    const data = getDataForDate(dateKey);
+    if (!Array.isArray(data.planned)) data.planned = [];
+    data.planned.push(...newEvents);
+    saveDataForDate(dateKey, data);
+  });
+  saveOutlookImportedIds(importedIds);
+  showToast(`${count}개 일정 가져왔습니다`);
+  closeOutlookModal();
+  renderAll();
+}
+
+function outlookEditConfig() {
+  // 설정 영역 다시 노출
+  document.getElementById('outlook-config-section').hidden = false;
+  document.getElementById('outlook-config-save-btn').hidden = false;
+  document.getElementById('outlook-config-edit-btn').hidden = true;
+}
+function outlookSaveConfig() {
+  const cid = document.getElementById('outlook-client-id-input').value.trim();
+  const tenant = document.getElementById('outlook-tenant-input').value.trim() || 'common';
+  if (!cid) { showToast('Client ID 입력 필요'); return; }
+  saveOutlookConfig(cid, tenant);
+  // 다음 사용 시 새로 init
+  msalInstance = null;
+  outlookAccount = null;
+  initMSAL();
+  renderOutlookSections();
+  showToast('저장됨 — Microsoft 로그인 진행');
 }
 
 function closeSyncModal() {
@@ -5297,6 +5675,19 @@ function init() {
     renderWeekly();
   });
 
+  // Outlook 모달 바인딩
+  document.getElementById('outlook-btn').addEventListener('click', openOutlookModal);
+  document.getElementById('outlook-cancel-btn').addEventListener('click', closeOutlookModal);
+  document.getElementById('outlook-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'outlook-modal') closeOutlookModal();
+  });
+  document.getElementById('outlook-config-save-btn').addEventListener('click', outlookSaveConfig);
+  document.getElementById('outlook-config-edit-btn').addEventListener('click', outlookEditConfig);
+  document.getElementById('outlook-login-btn').addEventListener('click', outlookLogin);
+  document.getElementById('outlook-logout-btn').addEventListener('click', outlookLogout);
+  document.getElementById('outlook-fetch-btn').addEventListener('click', outlookFetchEvents);
+  document.getElementById('outlook-import-btn').addEventListener('click', outlookImportSelected);
+
   // 동기화 버튼
   document.getElementById('sync-btn').addEventListener('click', openSyncModal);
   document.getElementById('sync-cancel').addEventListener('click', closeSyncModal);
@@ -5454,10 +5845,11 @@ function init() {
     if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
   });
 
-  // ESC 시 되풀이 모달도 같이 닫기
+  // ESC 시 되풀이/Outlook 모달도 같이 닫기
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeRecurringModal(); closeRecurringEditModal(); closeChoiceModal();
+      closeOutlookModal();
     }
   });
 
