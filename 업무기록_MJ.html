@@ -1346,65 +1346,119 @@
   <div class="modal" style="width: 640px;">
     <h2>📅 Outlook 캘린더 가져오기</h2>
 
-    <!-- 1단계: 설정 (Client ID 미입력 시) -->
-    <div id="outlook-config-section" hidden>
+    <div class="settings-tabs" id="outlook-tabs">
+      <button class="settings-tab active" data-otab="ics">ICS URL (간편 — Azure 불필요)</button>
+      <button class="settings-tab" data-otab="graph">Microsoft Graph (Azure 필요)</button>
+    </div>
+
+    <!-- ===== ICS URL 탭 ===== -->
+    <div data-otab-content="ics">
       <p style="font-size:13px; color:#5c4a38; line-height:1.6;">
-        Azure AD에서 받은 <b>Client ID</b>를 입력하세요. (1회만 — 모든 기기에서 같은 ID 사용)<br>
-        <span style="color:#8c6d4f;">아래 "📖 Azure AD 설정 가이드 보기"로 받는 법 확인 가능</span>
+        Outlook web에서 캘린더를 게시(Publish)하면 받는 <b>ICS URL</b>을 입력하세요.
       </p>
       <details style="margin: 8px 0;">
-        <summary style="cursor:pointer; color:#8c6d4f; font-size:13px;">📖 Azure AD 설정 가이드 보기</summary>
+        <summary style="cursor:pointer; color:#8c6d4f; font-size:13px;">📖 Outlook web에서 ICS URL 받는 법</summary>
         <ol style="margin: 10px 0 0 18px; font-size: 12px; line-height: 1.7; color: #3a2e24;">
-          <li><a href="https://portal.azure.com" target="_blank">Azure Portal</a> 접속 (회사 Microsoft 계정으로 로그인)</li>
-          <li>상단 검색창에 <b>App registrations</b> → 클릭</li>
-          <li><b>+ New registration</b> 클릭</li>
-          <li>이름: <code>업무기록 worklog</code> (자유)</li>
-          <li>지원 계정 유형: <b>Accounts in any organizational directory and personal Microsoft accounts</b></li>
-          <li>Redirect URI: <b>Single-page application (SPA)</b> 선택, URL은 <code id="outlook-redirect-uri-display">(앱 URL)</code></li>
-          <li><b>Register</b> 클릭</li>
-          <li>등록 후 표시되는 <b>Application (client) ID</b> 값 복사 → 아래 입력</li>
-          <li>좌측 <b>API permissions</b> → <b>+ Add a permission</b> → Microsoft Graph → Delegated → <b>Calendars.Read</b> 체크 → Add</li>
-          <li>회사 계정이면 <b>Grant admin consent</b> 버튼이 보일 수 있음 — IT 도움 필요</li>
+          <li><a href="https://outlook.office.com" target="_blank">outlook.office.com</a> 접속 → 회사 계정 로그인</li>
+          <li>우측 상단 <b>⚙ 설정</b> 클릭 → 하단 <b>모든 Outlook 설정 보기</b></li>
+          <li>좌측 <b>캘린더</b> → <b>공유 캘린더(Shared calendars)</b></li>
+          <li><b>캘린더 게시(Publish a calendar)</b> 섹션:
+            <ul style="margin: 4px 0 0 18px;">
+              <li>캘린더: 기본 "캘린더"</li>
+              <li>권한: <b>모든 세부 정보 보기 가능</b></li>
+              <li><b>게시(Publish)</b> 버튼</li>
+            </ul>
+          </li>
+          <li>나타난 두 링크 중 <b>ICS 링크</b>(.ics로 끝남) 복사 → 아래 붙여넣기</li>
+          <li>⚠️ 게시 메뉴가 회색이거나 안 보이면 회사 IT가 차단한 상태</li>
         </ol>
       </details>
-      <label>Client ID (필수)</label>
-      <input type="text" id="outlook-client-id-input" placeholder="00000000-0000-0000-0000-000000000000">
-      <label>Tenant (선택, 기본 <code>common</code>)</label>
-      <input type="text" id="outlook-tenant-input" placeholder="common 또는 회사 tenant ID">
-    </div>
-
-    <!-- 2단계: 로그인 (Client ID 있고 미로그인 시) -->
-    <div id="outlook-login-section" hidden>
-      <p style="font-size:13px; color:#5c4a38;">
-        Microsoft 계정으로 로그인하면 캘린더 일정을 가져올 수 있습니다.
+      <label>ICS URL</label>
+      <input type="text" id="ics-url-input" placeholder="https://outlook.office365.com/owa/calendar/.../calendar.ics">
+      <p style="font-size: 11px; color: #8c6d4f; margin-top: 4px;">
+        ⚠️ 보안 참고: ICS는 브라우저 보안(CORS)상 직접 못 읽어 무료 프록시(corsproxy.io)를 거칩니다. 캘린더 내용이 프록시 서버를 일시 통과합니다.
       </p>
-      <button class="primary" id="outlook-login-btn" style="margin-top: 12px; padding: 12px 20px;">🔐 Microsoft 로그인</button>
-    </div>
-
-    <!-- 3단계: 가져오기 (로그인 후) -->
-    <div id="outlook-fetch-section" hidden>
-      <p style="font-size:13px; color:#5c4a38;">
-        로그인됨: <b id="outlook-user-display">-</b>
-      </p>
-      <div class="time-row" style="margin-top: 12px;">
+      <div class="time-row" style="margin-top: 14px;">
         <div>
           <label>시작 날짜</label>
-          <input type="date" id="outlook-start-date">
+          <input type="date" id="ics-start-date">
         </div>
         <div>
           <label>종료 날짜</label>
-          <input type="date" id="outlook-end-date">
+          <input type="date" id="ics-end-date">
         </div>
       </div>
-      <button class="primary" id="outlook-fetch-btn" style="margin-top: 12px; padding: 10px 16px;">📥 일정 조회</button>
-
-      <div id="outlook-preview" style="margin-top: 14px;"></div>
+      <div style="display:flex; gap:8px; margin-top: 12px;">
+        <button id="ics-save-btn">URL 저장</button>
+        <button class="primary" id="ics-fetch-btn">📥 일정 조회</button>
+      </div>
     </div>
 
+    <!-- ===== Microsoft Graph 탭 ===== -->
+    <div data-otab-content="graph" hidden>
+      <!-- 1단계: 설정 (Client ID 미입력 시) -->
+      <div id="outlook-config-section" hidden>
+        <p style="font-size:13px; color:#5c4a38; line-height:1.6;">
+          Azure AD에서 받은 <b>Client ID</b>를 입력하세요. (1회만 — 모든 기기에서 같은 ID 사용)<br>
+          <span style="color:#8c6d4f;">아래 "📖 Azure AD 설정 가이드 보기"로 받는 법 확인 가능</span>
+        </p>
+        <details style="margin: 8px 0;">
+          <summary style="cursor:pointer; color:#8c6d4f; font-size:13px;">📖 Azure AD 설정 가이드 보기</summary>
+          <ol style="margin: 10px 0 0 18px; font-size: 12px; line-height: 1.7; color: #3a2e24;">
+            <li><a href="https://portal.azure.com" target="_blank">Azure Portal</a> 접속 (회사 Microsoft 계정으로 로그인)</li>
+            <li>상단 검색창에 <b>App registrations</b> → 클릭</li>
+            <li><b>+ New registration</b> 클릭</li>
+            <li>이름: <code>업무기록 worklog</code> (자유)</li>
+            <li>지원 계정 유형: <b>Accounts in any organizational directory and personal Microsoft accounts</b></li>
+            <li>Redirect URI: <b>Single-page application (SPA)</b> 선택, URL은 <code id="outlook-redirect-uri-display">(앱 URL)</code></li>
+            <li><b>Register</b> 클릭</li>
+            <li>등록 후 표시되는 <b>Application (client) ID</b> 값 복사 → 아래 입력</li>
+            <li>좌측 <b>API permissions</b> → <b>+ Add a permission</b> → Microsoft Graph → Delegated → <b>Calendars.Read</b> 체크 → Add</li>
+            <li>회사 계정이면 <b>Grant admin consent</b> 버튼이 보일 수 있음 — IT 도움 필요</li>
+          </ol>
+        </details>
+        <label>Client ID (필수)</label>
+        <input type="text" id="outlook-client-id-input" placeholder="00000000-0000-0000-0000-000000000000">
+        <label>Tenant (선택, 기본 <code>common</code>)</label>
+        <input type="text" id="outlook-tenant-input" placeholder="common 또는 회사 tenant ID">
+        <button id="outlook-config-save-btn" class="primary" style="margin-top: 10px;">저장</button>
+      </div>
+
+      <!-- 2단계: 로그인 (Client ID 있고 미로그인 시) -->
+      <div id="outlook-login-section" hidden>
+        <p style="font-size:13px; color:#5c4a38;">
+          Microsoft 계정으로 로그인하면 캘린더 일정을 가져올 수 있습니다.
+        </p>
+        <button class="primary" id="outlook-login-btn" style="margin-top: 12px; padding: 12px 20px;">🔐 Microsoft 로그인</button>
+      </div>
+
+      <!-- 3단계: 가져오기 (로그인 후) -->
+      <div id="outlook-fetch-section" hidden>
+        <p style="font-size:13px; color:#5c4a38;">
+          로그인됨: <b id="outlook-user-display">-</b>
+        </p>
+        <div class="time-row" style="margin-top: 12px;">
+          <div>
+            <label>시작 날짜</label>
+            <input type="date" id="outlook-start-date">
+          </div>
+          <div>
+            <label>종료 날짜</label>
+            <input type="date" id="outlook-end-date">
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top: 12px;">
+          <button id="outlook-config-edit-btn">설정 변경</button>
+          <button id="outlook-logout-btn" style="color:#b04040;border-color:#b04040;">로그아웃</button>
+          <button class="primary" id="outlook-fetch-btn" style="margin-left:auto;">📥 일정 조회</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 공통 미리보기 -->
+    <div id="outlook-preview" style="margin-top: 14px;"></div>
+
     <div class="modal-actions">
-      <button id="outlook-config-edit-btn" style="margin-right:auto;" hidden>설정 변경</button>
-      <button id="outlook-logout-btn" style="color:#b04040;border-color:#b04040;" hidden>로그아웃</button>
-      <button id="outlook-config-save-btn" class="primary" hidden>저장</button>
       <button id="outlook-import-btn" class="primary" hidden>선택한 일정 가져오기</button>
       <button id="outlook-cancel-btn">닫기</button>
     </div>
@@ -1891,11 +1945,15 @@ function initMSAL() {
 
 function openOutlookModal() {
   document.getElementById('outlook-modal').classList.add('active');
-  // redirect URI 표시 (가이드 안에서 참조)
+  // redirect URI 표시 (Graph 탭 가이드에서 참조)
   const uriEl = document.getElementById('outlook-redirect-uri-display');
   if (uriEl) uriEl.textContent = window.location.origin + window.location.pathname;
   initMSAL();
+  // 두 탭 모두 미리 초기화
+  icsRestoreFields();
   renderOutlookSections();
+  // 기본 탭: ICS (간편)
+  switchOutlookTab(currentOutlookTab || 'ics');
 }
 function closeOutlookModal() {
   document.getElementById('outlook-modal').classList.remove('active');
@@ -2097,6 +2155,170 @@ function outlookEditConfig() {
   document.getElementById('outlook-config-section').hidden = false;
   document.getElementById('outlook-config-save-btn').hidden = false;
   document.getElementById('outlook-config-edit-btn').hidden = true;
+}
+
+// ============== Outlook 탭 전환 ==============
+let currentOutlookTab = 'ics';
+function switchOutlookTab(tab) {
+  currentOutlookTab = tab;
+  document.querySelectorAll('#outlook-tabs .settings-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.otab === tab));
+  document.querySelectorAll('[data-otab-content]').forEach(div => {
+    div.hidden = div.dataset.otabContent !== tab;
+  });
+  // 탭 전환 시 미리보기·import 버튼 초기화
+  document.getElementById('outlook-preview').innerHTML = '';
+  document.getElementById('outlook-import-btn').hidden = true;
+  lastOutlookEvents = [];
+  if (tab === 'graph') renderOutlookSections();
+}
+
+// ============== ICS URL 모드 ==============
+function getIcsUrl() { return localStorage.getItem('outlook-ics-url') || ''; }
+function saveIcsUrl(url) { localStorage.setItem('outlook-ics-url', url.trim()); }
+
+function icsSaveUrl() {
+  const url = document.getElementById('ics-url-input').value.trim();
+  if (!url) { showToast('ICS URL 입력 필요'); return; }
+  if (!/^https?:\/\//i.test(url)) { showToast('http(s):// 로 시작해야 합니다'); return; }
+  saveIcsUrl(url);
+  showToast('URL 저장됨');
+}
+
+function icsRestoreFields() {
+  document.getElementById('ics-url-input').value = getIcsUrl();
+  const todayKey = formatDateKey(new Date());
+  if (!document.getElementById('ics-start-date').value) {
+    document.getElementById('ics-start-date').value = todayKey;
+  }
+  if (!document.getElementById('ics-end-date').value) {
+    // 1주일 default
+    const wk = addDays(new Date(), 6);
+    document.getElementById('ics-end-date').value = formatDateKey(wk);
+  }
+}
+
+// 간단한 ICS 파서 (RFC 5545 핵심만)
+function parseICS(text) {
+  // 줄 unfolding (CRLF 다음 공백/탭은 이전 줄 연속)
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/);
+  const events = [];
+  let cur = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') {
+      if (cur) events.push(cur);
+      cur = null;
+      continue;
+    }
+    if (!cur) continue;
+    const colon = line.indexOf(':');
+    if (colon < 0) continue;
+    const head = line.slice(0, colon);
+    const value = line.slice(colon + 1);
+    const parts = head.split(';');
+    const key = parts[0];
+    const params = {};
+    for (let i = 1; i < parts.length; i++) {
+      const eq = parts[i].indexOf('=');
+      if (eq > 0) params[parts[i].slice(0, eq)] = parts[i].slice(eq + 1);
+    }
+    switch (key) {
+      case 'SUMMARY': cur.summary = unescapeIcs(value); break;
+      case 'DTSTART':
+        cur.startRaw = value; cur.startTzid = params.TZID;
+        if (params.VALUE === 'DATE') cur.isAllDay = true;
+        break;
+      case 'DTEND':
+        cur.endRaw = value; cur.endTzid = params.TZID;
+        break;
+      case 'UID': cur.uid = value; break;
+      case 'LOCATION': cur.location = unescapeIcs(value); break;
+      case 'STATUS': cur.status = value; break;
+    }
+  }
+  return events;
+}
+function unescapeIcs(s) {
+  return String(s).replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
+}
+function _pad2(n) { return String(n).padStart(2, '0'); }
+function parseIcsDateTime(raw, tzid) {
+  if (!raw) return null;
+  if (/^\d{8}$/.test(raw)) {
+    return { date: `${raw.slice(0,4)}-${raw.slice(4,6)}-${raw.slice(6,8)}`, time: null };
+  }
+  const m = raw.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (!m) return null;
+  const [, yr, mo, dy, h, mn, , z] = m;
+  if (z === 'Z') {
+    // UTC → 로컬 (브라우저 기준 = KST 가정)
+    const dt = new Date(Date.UTC(+yr, +mo - 1, +dy, +h, +mn, 0));
+    return {
+      date: formatDateKey(dt),
+      time: `${_pad2(dt.getHours())}:${_pad2(dt.getMinutes())}`,
+    };
+  }
+  // floating 또는 TZID 있음 — local로 가정 (KST)
+  return { date: `${yr}-${mo}-${dy}`, time: `${h}:${mn}` };
+}
+// ICS 이벤트를 Graph 형식과 동일하게 정규화 (renderOutlookPreview 재사용)
+function icsEventToNormalized(ev) {
+  const start = parseIcsDateTime(ev.startRaw, ev.startTzid);
+  const end = parseIcsDateTime(ev.endRaw, ev.endTzid);
+  if (!start) return null;
+  const allDay = ev.isAllDay || !start.time;
+  const startTime = start.time || '00:00';
+  const endTime = (end && end.time) ? end.time : '00:00';
+  const endDate = (end && end.date) || start.date;
+  return {
+    id: ev.uid || `${ev.summary}:${ev.startRaw}`,
+    subject: ev.summary || '(제목 없음)',
+    start: { dateTime: `${start.date}T${startTime}:00` },
+    end: { dateTime: `${endDate}T${endTime}:00` },
+    location: { displayName: ev.location || '' },
+    isAllDay: allDay,
+  };
+}
+
+async function icsFetchEvents() {
+  const url = getIcsUrl();
+  if (!url) { showToast('먼저 URL을 입력·저장하세요'); return; }
+  const startStr = document.getElementById('ics-start-date').value;
+  const endStr = document.getElementById('ics-end-date').value;
+  if (!startStr || !endStr) { showToast('시작/종료 날짜 선택 필요'); return; }
+  if (startStr > endStr) { showToast('종료가 시작 이후여야 합니다'); return; }
+
+  const preview = document.getElementById('outlook-preview');
+  preview.innerHTML = '<div class="outlook-empty">조회 중... (CORS 프록시 통과 중)</div>';
+
+  // CORS proxy 통과
+  const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+  try {
+    const res = await fetch(proxyUrl, { cache: 'no-store' });
+    if (!res.ok) {
+      preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">조회 실패 (HTTP ${res.status})<br><small>프록시(corsproxy.io) 또는 ICS URL 문제일 수 있습니다.</small></div>`;
+      return;
+    }
+    const text = await res.text();
+    if (!text.includes('BEGIN:VCALENDAR')) {
+      preview.innerHTML = '<div class="outlook-empty" style="color:#b04040;">받은 응답이 ICS 형식이 아닙니다. URL 다시 확인해주세요.</div>';
+      return;
+    }
+    const allEvents = parseICS(text).map(icsEventToNormalized).filter(Boolean);
+    // 날짜 범위로 필터
+    const inRange = allEvents.filter(e => {
+      const d = e.start.dateTime.slice(0, 10);
+      return d >= startStr && d <= endStr;
+    });
+    // 정렬: 시작 시각 오름차순
+    inRange.sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime));
+    lastOutlookEvents = inRange;
+    renderOutlookPreview();
+  } catch (err) {
+    preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">에러: ${escapeHtml(err.message || String(err))}</div>`;
+  }
 }
 function outlookSaveConfig() {
   const cid = document.getElementById('outlook-client-id-input').value.trim();
@@ -5687,6 +5909,14 @@ function init() {
   document.getElementById('outlook-logout-btn').addEventListener('click', outlookLogout);
   document.getElementById('outlook-fetch-btn').addEventListener('click', outlookFetchEvents);
   document.getElementById('outlook-import-btn').addEventListener('click', outlookImportSelected);
+
+  // Outlook 탭 전환 (ICS / Graph)
+  document.querySelectorAll('#outlook-tabs .settings-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchOutlookTab(btn.dataset.otab));
+  });
+  // ICS URL 모드
+  document.getElementById('ics-save-btn').addEventListener('click', icsSaveUrl);
+  document.getElementById('ics-fetch-btn').addEventListener('click', icsFetchEvents);
 
   // 동기화 버튼
   document.getElementById('sync-btn').addEventListener('click', openSyncModal);
