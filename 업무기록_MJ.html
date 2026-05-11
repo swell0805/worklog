@@ -1373,24 +1373,31 @@
           <li>⚠️ 게시 메뉴가 회색이거나 안 보이면 회사 IT가 차단한 상태</li>
         </ol>
       </details>
-      <label>ICS URL</label>
+      <label>방법 1) ICS URL (자동 조회)</label>
       <input type="text" id="ics-url-input" placeholder="https://outlook.office365.com/owa/calendar/.../calendar.ics">
       <p style="font-size: 11px; color: #8c6d4f; margin-top: 4px;">
-        ⚠️ 보안 참고: ICS는 브라우저 보안(CORS)상 직접 못 읽어 무료 프록시(corsproxy.io)를 거칩니다. 캘린더 내용이 프록시 서버를 일시 통과합니다.
+        ⚠️ 무료 CORS 프록시(allorigins.win/corsproxy.io 등 순차 시도)를 거칩니다. Microsoft가 프록시를 차단하면 작동 안 함 → 그땐 아래 "파일 업로드"로.
       </p>
+
+      <label style="margin-top: 14px;">방법 2) .ics 파일 직접 업로드 (프록시 우회 — 가장 안정)</label>
+      <p style="font-size: 11px; color: #8c6d4f; margin-bottom: 4px;">
+        브라우저에서 ICS URL 열면 .ics 파일이 다운로드됨 → 그 파일을 여기 업로드하세요.
+      </p>
+      <input type="file" id="ics-file-input" accept=".ics,text/calendar" style="font-size:13px;">
+
       <div class="time-row" style="margin-top: 14px;">
         <div>
-          <label>시작 날짜</label>
+          <label>시작 날짜 (필터)</label>
           <input type="date" id="ics-start-date">
         </div>
         <div>
-          <label>종료 날짜</label>
+          <label>종료 날짜 (필터)</label>
           <input type="date" id="ics-end-date">
         </div>
       </div>
       <div style="display:flex; gap:8px; margin-top: 12px;">
         <button id="ics-save-btn">URL 저장</button>
-        <button class="primary" id="ics-fetch-btn">📥 일정 조회</button>
+        <button class="primary" id="ics-fetch-btn">📥 URL로 일정 조회</button>
       </div>
     </div>
 
@@ -2282,6 +2289,30 @@ function icsEventToNormalized(ev) {
   };
 }
 
+// 받은 ICS text를 날짜 범위로 필터링 + 미리보기 렌더링
+function icsRenderFromText(text, startStr, endStr) {
+  const preview = document.getElementById('outlook-preview');
+  if (!text.includes('BEGIN:VCALENDAR')) {
+    preview.innerHTML = '<div class="outlook-empty" style="color:#b04040;">받은 응답이 ICS 형식이 아닙니다.</div>';
+    return;
+  }
+  const allEvents = parseICS(text).map(icsEventToNormalized).filter(Boolean);
+  const inRange = allEvents.filter(e => {
+    const d = e.start.dateTime.slice(0, 10);
+    return d >= startStr && d <= endStr;
+  });
+  inRange.sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime));
+  lastOutlookEvents = inRange;
+  renderOutlookPreview();
+}
+
+// 무료 CORS 프록시 목록 — 순차 시도, 첫 성공 시 사용
+const ICS_CORS_PROXIES = [
+  (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+];
+
 async function icsFetchEvents() {
   const url = getIcsUrl();
   if (!url) { showToast('먼저 URL을 입력·저장하세요'); return; }
@@ -2291,33 +2322,43 @@ async function icsFetchEvents() {
   if (startStr > endStr) { showToast('종료가 시작 이후여야 합니다'); return; }
 
   const preview = document.getElementById('outlook-preview');
-  preview.innerHTML = '<div class="outlook-empty">조회 중... (CORS 프록시 통과 중)</div>';
+  const errors = [];
 
-  // CORS proxy 통과
-  const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+  for (let i = 0; i < ICS_CORS_PROXIES.length; i++) {
+    const proxyFn = ICS_CORS_PROXIES[i];
+    preview.innerHTML = `<div class="outlook-empty">조회 중... 프록시 ${i + 1}/${ICS_CORS_PROXIES.length} 시도</div>`;
+    try {
+      const res = await fetch(proxyFn(url), { cache: 'no-store' });
+      if (!res.ok) { errors.push(`#${i+1}: HTTP ${res.status}`); continue; }
+      const text = await res.text();
+      if (!text.includes('BEGIN:VCALENDAR')) { errors.push(`#${i+1}: ICS 형식 아님`); continue; }
+      icsRenderFromText(text, startStr, endStr);
+      return;
+    } catch (err) {
+      errors.push(`#${i+1}: ${err.message || err}`);
+    }
+  }
+  preview.innerHTML = `
+    <div class="outlook-empty" style="color:#b04040;">
+      모든 프록시 실패 (${ICS_CORS_PROXIES.length}개 시도)<br>
+      <small style="color:#6b5c4a;">${escapeHtml(errors.join(' / '))}</small><br><br>
+      <b>대안</b>: 위 "방법 2"에서 .ics 파일을 다운로드해서 직접 업로드하세요.
+    </div>
+  `;
+}
+
+async function icsHandleFileUpload(file) {
+  if (!file) return;
+  const startStr = document.getElementById('ics-start-date').value;
+  const endStr = document.getElementById('ics-end-date').value;
+  if (!startStr || !endStr) { showToast('시작/종료 날짜 선택 필요'); return; }
+  if (startStr > endStr) { showToast('종료가 시작 이후여야 합니다'); return; }
   try {
-    const res = await fetch(proxyUrl, { cache: 'no-store' });
-    if (!res.ok) {
-      preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">조회 실패 (HTTP ${res.status})<br><small>프록시(corsproxy.io) 또는 ICS URL 문제일 수 있습니다.</small></div>`;
-      return;
-    }
-    const text = await res.text();
-    if (!text.includes('BEGIN:VCALENDAR')) {
-      preview.innerHTML = '<div class="outlook-empty" style="color:#b04040;">받은 응답이 ICS 형식이 아닙니다. URL 다시 확인해주세요.</div>';
-      return;
-    }
-    const allEvents = parseICS(text).map(icsEventToNormalized).filter(Boolean);
-    // 날짜 범위로 필터
-    const inRange = allEvents.filter(e => {
-      const d = e.start.dateTime.slice(0, 10);
-      return d >= startStr && d <= endStr;
-    });
-    // 정렬: 시작 시각 오름차순
-    inRange.sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime));
-    lastOutlookEvents = inRange;
-    renderOutlookPreview();
+    const text = await file.text();
+    icsRenderFromText(text, startStr, endStr);
   } catch (err) {
-    preview.innerHTML = `<div class="outlook-empty" style="color:#b04040;">에러: ${escapeHtml(err.message || String(err))}</div>`;
+    document.getElementById('outlook-preview').innerHTML =
+      `<div class="outlook-empty" style="color:#b04040;">파일 읽기 실패: ${escapeHtml(err.message || String(err))}</div>`;
   }
 }
 function outlookSaveConfig() {
@@ -5917,6 +5958,11 @@ function init() {
   // ICS URL 모드
   document.getElementById('ics-save-btn').addEventListener('click', icsSaveUrl);
   document.getElementById('ics-fetch-btn').addEventListener('click', icsFetchEvents);
+  document.getElementById('ics-file-input').addEventListener('change', (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (file) icsHandleFileUpload(file);
+    e.target.value = ''; // 같은 파일 재선택 가능
+  });
 
   // 동기화 버튼
   document.getElementById('sync-btn').addEventListener('click', openSyncModal);
