@@ -5265,13 +5265,22 @@ function buildImportPrompt() {
   p += `- 위 카테고리에 해당하면 그대로 사용\n`;
   p += `- 해당 없으면 자료 내용을 참고해 새 카테고리명 생성 (간결하게, 일관된 명명 규칙)\n`;
   p += `- 카테고리 결정이 모호하면 가장 가까운 기존 카테고리 사용\n\n`;
+  const assigneeList = settings.assignees.length > 0
+    ? settings.assignees.map(a => `"${a}"`).join(', ')
+    : '(아직 등록된 담당자 없음)';
+  p += `## 담당자 / 목표일 / 중요도 (선택 항목)\n`;
+  p += `자료에 명시되어 있으면 함께 추출:\n`;
+  p += `- **assignees**: 담당자 배열 (복수 가능). 등록된 담당자: ${assigneeList}. 새 이름은 자동 등록됨.\n`;
+  p += `- **targetDate**: 목표일이 명시된 경우 \`YYYY-MM-DD\` 형식 (이번 주 범위 내면 그 요일 컬럼에 자동 배치)\n`;
+  p += `- **importance**: "최상" / "상" / "중" / "하" 중 하나 (명시된 경우)\n`;
+  p += `- **urgent**: true (시급한 업무)\n\n`;
   p += `## 출력 형식 (이대로만 출력)\n\n`;
   p += `다른 설명 없이 **JSON만** 출력하세요. 코드블록(\`\`\`json...\`\`\`) 으로 감싸서:\n\n`;
   p += '```json\n';
   p += `{\n`;
   p += `  "tasks": [\n`;
-  p += `    { "title": "업무 제목 1", "category": "카테고리명" },\n`;
-  p += `    { "title": "업무 제목 2", "category": "카테고리명" }\n`;
+  p += `    { "title": "업무 제목 1", "category": "카테고리명", "assignees": ["담당자A"], "targetDate": "2026-05-15", "urgent": true },\n`;
+  p += `    { "title": "업무 제목 2", "category": "카테고리명", "assignees": ["담당자A", "담당자B"] }\n`;
   p += `  ]\n`;
   p += `}\n`;
   p += '```\n\n';
@@ -5324,12 +5333,15 @@ function executeImport() {
   // 가져오기 실행
   const settings = getSettings();
   const existingCats = new Set(settings.categories);
+  const existingAssignees = new Set(settings.assignees);
   const newCats = new Set();
+  const newAssignees = new Set();
   const monday = currentWeekStart || getMondayOf(new Date());
   const weekStartKey = formatDateKey(monday);
   const tasks = getLongTermTasks();
+  // 같은 weekStart 안에서만 중복 체크 (targetDate 있든 없든)
   const existingTitlesInBucket = new Set(
-    tasks.filter(t => !t.targetDate && t.weekStart === weekStartKey).map(t => t.title)
+    tasks.filter(t => t.weekStart === weekStartKey || (t.targetDate && isInWeek(t.targetDate, monday))).map(t => t.title)
   );
   let added = 0, skipped = 0;
   validTasks.forEach(t => {
@@ -5340,18 +5352,40 @@ function executeImport() {
       targetDate: null, weekStart: weekStartKey,
       done: false,
     };
+    // category
     if (t.category && typeof t.category === 'string' && t.category.trim()) {
       const cat = t.category.trim();
       newTask.category = cat;
       if (!existingCats.has(cat)) newCats.add(cat);
     }
+    // targetDate (YYYY-MM-DD) — 그 주 내에 있으면 요일별 컬럼에, 그 외엔 그대로 (longterm 패널)
+    if (t.targetDate && /^\d{4}-\d{2}-\d{2}$/.test(t.targetDate)) {
+      newTask.targetDate = t.targetDate;
+      newTask.weekStart = formatDateKey(getMondayOf(new Date(t.targetDate + 'T00:00:00')));
+    }
+    // assignees (array of strings) — 신규 담당자는 settings에 자동 추가
+    if (Array.isArray(t.assignees) && t.assignees.length > 0) {
+      const arr = t.assignees.filter(a => typeof a === 'string' && a.trim()).map(a => a.trim());
+      newTask.assignees = arr;
+      arr.forEach(a => { if (!existingAssignees.has(a)) newAssignees.add(a); });
+    }
+    // importance (string)
+    if (t.importance && typeof t.importance === 'string' && t.importance.trim()) {
+      newTask.importance = t.importance.trim();
+    }
+    // urgent (boolean)
+    if (t.urgent === true) newTask.urgent = true;
     tasks.push(newTask);
     added++;
   });
 
-  // 새 카테고리 자동 추가
-  if (newCats.size > 0) {
-    const newSettings = { ...settings, categories: [...settings.categories, ...newCats] };
+  // 새 카테고리·담당자 자동 추가
+  if (newCats.size > 0 || newAssignees.size > 0) {
+    const newSettings = {
+      ...settings,
+      categories: [...settings.categories, ...newCats],
+      assignees: [...settings.assignees, ...newAssignees],
+    };
     saveSettings(newSettings);
   }
   saveLongTermTasks(tasks);
@@ -5360,7 +5394,8 @@ function executeImport() {
 
   let msg = `✅ ${added}개 업무 가져옴`;
   if (skipped > 0) msg += ` (중복 ${skipped}개 제외)`;
-  if (newCats.size > 0) msg += ` · 새 카테고리 ${newCats.size}개 등록: ${[...newCats].join(', ')}`;
+  if (newCats.size > 0) msg += ` · 새 카테고리 ${newCats.size}개`;
+  if (newAssignees.size > 0) msg += ` · 새 담당자 ${newAssignees.size}개`;
   info.textContent = msg;
   info.style.color = '#4a7a35';
   showToast(msg);
