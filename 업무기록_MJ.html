@@ -106,8 +106,10 @@
   .todo-item.teammate:hover { background: #ebe0c8; }
   .todo-item .todo-multi {
     flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
-    padding-top: 1px;
+    padding-top: 1px; cursor: pointer;
   }
+  /* 주간업무 (내것·readonly input) — 클릭 시 편집 모달 */
+  .todo-item input[type="text"][readonly] { cursor: pointer; }
   .todo-item .todo-multi .assignee-line {
     font-size: 11px; color: #8c6d4f; font-weight: 600;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -4634,12 +4636,19 @@ function renderTodos() {
         const all = getLongTermTasks();
         const i = all.findIndex(t => t.id === taskId);
         if (i >= 0) {
-          all[i].done = checkbox.checked;
+          applyDoneToggle(all[i], checkbox.checked);
           saveLongTermTasks(all);
           renderTodos();
           renderLongTerm();
           if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
         }
+      });
+      // 카드 영역 클릭 시 longterm 편집 모달 (체크박스/드래그핸들 클릭은 제외)
+      div.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.target.classList.contains('drag-handle')) return;
+        const fresh = getLongTermTasks().find(t => t.id === taskId);
+        if (fresh) openLongTermModal(fresh);
       });
       list.appendChild(div);
       return;
