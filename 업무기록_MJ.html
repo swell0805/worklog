@@ -99,6 +99,30 @@
   }
   .todo-item:hover .del-x { opacity: 1; }
   .todo-item.done input[type="text"] { text-decoration: line-through; color: #a89a84; }
+  /* 팀원 업무 (2줄 레이아웃) */
+  .todo-item.teammate {
+    background: #f0e8d8; align-items: flex-start; padding: 6px 10px 7px;
+  }
+  .todo-item.teammate:hover { background: #ebe0c8; }
+  .todo-item .todo-multi {
+    flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+    padding-top: 1px;
+  }
+  .todo-item .todo-multi .assignee-line {
+    font-size: 11px; color: #8c6d4f; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .todo-item .todo-multi .task-text {
+    font-size: 12px; color: #3a2e24; line-height: 1.35;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .todo-item.done .todo-multi .task-text { text-decoration: line-through; color: #a89a84; }
+  /* 내 업무 / 팀원 업무 구분선 */
+  .todo-divider {
+    font-size: 11px; color: #8c6d4f; font-weight: 600;
+    padding: 10px 6px 4px; text-align: center;
+    border-top: 1px dashed #c9b89c; margin-top: 8px;
+  }
   .todo-item .drag-handle {
     color: #b8a990; cursor: grab; font-size: 13px; user-select: none;
     padding: 0 2px; opacity: 0; transition: opacity 0.15s; line-height: 1;
@@ -185,10 +209,14 @@
   }
   .longterm-item {
     background: #fdfaf3; border: 1px solid #e0d5c3; border-radius: 4px;
-    padding: 8px 28px 8px 10px; margin-bottom: 6px; cursor: pointer;
+    padding: 8px 28px 8px 10px; margin-bottom: 6px; cursor: grab;
     position: relative; transition: box-shadow 0.1s;
+    display: flex; align-items: flex-start; gap: 8px;
   }
+  .longterm-item .longterm-content { flex: 1; min-width: 0; }
   .longterm-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .longterm-item:active { cursor: grabbing; }
+  .longterm-item.dragging { opacity: 0.4; }
   .longterm-item.done {
     opacity: 0.5;
     background: #eeebe4;
@@ -216,10 +244,11 @@
   }
   .longterm-item:hover .del-x { opacity: 1; }
   .longterm-item .done-check {
-    position: absolute; top: 8px; right: 24px; opacity: 0;
-    transition: opacity 0.15s; accent-color: #8c6d4f; cursor: pointer;
+    position: static; opacity: 1;
+    accent-color: #8c6d4f; cursor: pointer;
+    flex-shrink: 0; margin-top: 3px;
+    width: 16px; height: 16px;
   }
-  .longterm-item:hover .done-check, .longterm-item.done .done-check { opacity: 1; }
 
   /* 장기업무 컬럼 — 지연업무 + 장기업무 분할 */
   .timeline-col[data-col="longterm"] { display: flex; flex-direction: column; }
@@ -241,8 +270,10 @@
     display: flex; align-items: flex-start; gap: 8px;
     padding: 7px 28px 7px 10px; border-radius: 4px; margin-bottom: 5px;
     background: #fdf1e6; border: 1px solid #edd0ae;
-    position: relative; cursor: default;
+    position: relative; cursor: grab;
   }
+  .delayed-item:active { cursor: grabbing; }
+  .delayed-item.dragging { opacity: 0.4; }
   .delayed-item input[type="checkbox"] {
     accent-color: #c47718; margin-top: 2px; cursor: pointer; flex-shrink: 0;
   }
@@ -2149,13 +2180,50 @@ function outlookImportSelected() {
   Object.entries(byDate).forEach(([dateKey, newEvents]) => {
     const data = getDataForDate(dateKey);
     if (!Array.isArray(data.planned)) data.planned = [];
+    if (!Array.isArray(data.todos)) data.todos = [];
     data.planned.push(...newEvents);
+    // 각 신규 일정마다 To do list에도 자동 등록 (saveEvent의 planned 동기화 패턴 동일)
+    newEvents.forEach(ev => {
+      const todoText = `${ev.start} ${ev.title}`;
+      if (!data.todos.some(t => t.text === todoText)) {
+        data.todos.push({ text: todoText, done: false });
+      }
+    });
     saveDataForDate(dateKey, data);
   });
   saveOutlookImportedIds(importedIds);
   showToast(`${count}개 일정 가져왔습니다`);
   closeOutlookModal();
   renderAll();
+}
+
+// 일회성: 모든 날짜의 planned 이벤트 → todos에 미동기화된 항목 backfill
+// 이전에 Outlook에서 가져왔지만 todo에 안 들어갔던 일정도 한 번에 채워줌
+function backfillTodosFromPlannedOnce() {
+  if (localStorage.getItem('worklog-todo-backfill-v1')) return;
+  let added = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !/^worklog-\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+    try {
+      const data = JSON.parse(localStorage.getItem(key));
+      if (!Array.isArray(data.planned)) continue;
+      if (!Array.isArray(data.todos)) data.todos = [];
+      let changed = false;
+      data.planned.forEach(ev => {
+        if (!ev.start || !ev.title) return;
+        const todoText = `${ev.start} ${ev.title}`;
+        if (!data.todos.some(t => t.text === todoText)) {
+          data.todos.push({ text: todoText, done: false });
+          changed = true;
+          added++;
+        }
+      });
+      if (changed) localStorage.setItem(key, JSON.stringify(data));
+    } catch(e) {}
+  }
+  localStorage.setItem('worklog-todo-backfill-v1', '1');
+  if (added > 0) console.log('[backfill] todos added:', added);
 }
 
 function outlookEditConfig() {
@@ -2550,11 +2618,23 @@ function renderDelayed() {
   sorted.forEach(task => {
     const div = document.createElement('div');
     div.className = 'delayed-item' + (task.done ? ' done' : '');
+    div.draggable = true;
+    // 표시용 — HH:MM 시간 prefix 제거 (데이터는 그대로 유지)
+    const displayText = (task.text || '').replace(/^\d{1,2}:\d{2}\s+/, '');
     div.innerHTML = `
       <input type="checkbox" ${task.done ? 'checked' : ''}>
-      <div class="text">${escapeHtml(task.text)}${task.originalDate ? `<div class="origin">${task.originalDate.replaceAll('-','.')}</div>` : ''}</div>
+      <div class="text">${escapeHtml(displayText)}${task.originalDate ? `<div class="origin">${task.originalDate.replaceAll('-','.')}</div>` : ''}</div>
       <button class="del-x">×</button>
     `;
+    // 드래그 → 일과계획/실제실행 타임라인 드롭 (todo 형식으로 전달)
+    div.addEventListener('dragstart', (e) => {
+      div.classList.add('dragging');
+      const clean = (task.text || '').replace(/^\d{1,2}:\d{2}\s+/, '');
+      e.dataTransfer.setData('application/x-worklog-todo', clean);
+      e.dataTransfer.setData('text/plain', clean);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
     const check = div.querySelector('input[type="checkbox"]');
     const delBtn = div.querySelector('.del-x');
     check.addEventListener('change', () => {
@@ -2618,9 +2698,11 @@ function ddayClass(diff) {
 function renderLongTerm() {
   const allTasks = getLongTermTasks().filter(isVisibleByCompletion);
   // 이번 주(월~금) 일정 + 이번 주 금주업무는 주간보기에 속하므로 장기업무 패널에서 제외
+  // 되풀이 인스턴스는 자동 반복되므로 장기업무 패널에서 제외 (주간보기·Todo에서만 노출)
   const thisMonday = getMondayOf(new Date());
   const thisMondayKey = formatDateKey(thisMonday);
   const tasks = allTasks.filter(t => {
+    if (t.recurringId) return false;
     if (t.targetDate) return !isInWeek(t.targetDate, thisMonday);
     return t.weekStart !== thisMondayKey;
   });
@@ -2644,16 +2726,28 @@ function renderLongTerm() {
     const div = document.createElement('div');
     div.className = 'longterm-item' + (task.done ? ' done' : '') + (status === 'overdue' ? ' overdue' : '');
     if (task.recurringId) div.dataset.recurring = '1';
+    div.draggable = true;
     div.innerHTML = `
       <input type="checkbox" class="done-check" ${task.done ? 'checked' : ''}>
-      <button class="del-x">×</button>
-      <div class="longterm-title">${escapeHtml(task.title)}</div>
-      <div class="longterm-date">
-        ${ddayText ? `<span class="dday ${cls}">${ddayText}</span>` : ''}
-        <span>${task.targetDate ? task.targetDate.replaceAll('-', '.') : '목표일 미정'}</span>
+      <div class="longterm-content">
+        <div class="longterm-title">${escapeHtml(task.title)}</div>
+        <div class="longterm-date">
+          ${ddayText ? `<span class="dday ${cls}">${ddayText}</span>` : ''}
+          <span>${task.targetDate ? task.targetDate.replaceAll('-', '.') : '목표일 미정'}</span>
+        </div>
+        ${taskMetaHTML(task)}
       </div>
-      ${taskMetaHTML(task)}
+      <button class="del-x">×</button>
     `;
+    // 드래그 → 일과계획/실제실행 타임라인 드롭 (todo 형식으로 전달)
+    div.addEventListener('dragstart', (e) => {
+      e.stopPropagation();
+      div.classList.add('dragging');
+      e.dataTransfer.setData('application/x-worklog-todo', task.title || '');
+      e.dataTransfer.setData('text/plain', task.title || '');
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+    div.addEventListener('dragend', () => div.classList.remove('dragging'));
     const check = div.querySelector('.done-check');
     check.addEventListener('click', (e) => e.stopPropagation());
     check.addEventListener('change', () => {
@@ -4430,6 +4524,13 @@ function syncTodoCheckToPlannedEvent(d, todoText, isDone) {
   }
 }
 
+// 내 이름 (assignees 비교용) — localStorage로 변경 가능
+function getSelfName() { return localStorage.getItem('worklog-self-name') || '정민재'; }
+function isMyTask(task) {
+  if (!task || !Array.isArray(task.assignees) || task.assignees.length === 0) return true; // 미배정 = 내 업무
+  return task.assignees.includes(getSelfName());
+}
+
 function renderTodos() {
   const data = getCurrentData();
   const list = document.getElementById('todo-list');
@@ -4440,35 +4541,82 @@ function renderTodos() {
   const weeklyItems = weeklyForToday.map(t => ({
     source: 'weekly', taskId: t.id,
     todo: { text: t.title, done: t.done },
+    task: t,
+    isMine: isMyTask(t),
     idx: null,
   }));
-  const dailyItems = data.todos.map((todo, idx) => ({ source: 'daily', todo, idx }));
+  const dailyItems = data.todos.map((todo, idx) => ({
+    source: 'daily', todo, idx, isMine: true, // 일과 todo는 항상 내 것
+  }));
   const combined = [...weeklyItems, ...dailyItems];
-  // 시간 접두사(HH:MM) 있는 항목은 시간순 정렬, 없는 항목은 뒤에. 주간업무는 최상단.
+  // 그룹 우선순위:
+  //  1) 내 업무 — 시간 prefix 있는 daily (시간순)
+  //  2) 내 업무 — 주간업무 (taskId 기준)
+  //  3) 내 업무 — 시간 prefix 없는 daily (idx 순)
+  //  4) 팀원 업무 — 주간업무 (담당자 알파순)
+  function group(item) {
+    if (!item.isMine) return 4;
+    if (item.source === 'daily') {
+      const m = item.todo.text.match(/^(\d{1,2}):(\d{2})/);
+      return m ? 1 : 3;
+    }
+    return 2;
+  }
   const sorted = combined.sort((a, b) => {
-    if (a.source !== b.source) return a.source === 'weekly' ? -1 : 1;
-    const mA = a.todo.text.match(/^(\d{1,2}):(\d{2})/);
-    const mB = b.todo.text.match(/^(\d{1,2}):(\d{2})/);
-    if (mA && mB) {
+    const ga = group(a), gb = group(b);
+    if (ga !== gb) return ga - gb;
+    // 같은 그룹 내 정렬
+    if (ga === 1) {
+      // 시간 prefix daily — 시간순
+      const mA = a.todo.text.match(/^(\d{1,2}):(\d{2})/);
+      const mB = b.todo.text.match(/^(\d{1,2}):(\d{2})/);
       const minA = parseInt(mA[1]) * 60 + parseInt(mA[2]);
       const minB = parseInt(mB[1]) * 60 + parseInt(mB[2]);
       return minA - minB;
     }
-    if (mA && !mB) return -1;
-    if (!mA && mB) return 1;
-    return (a.idx || 0) - (b.idx || 0);
+    if (ga === 3) return (a.idx || 0) - (b.idx || 0);
+    if (ga === 4) {
+      // 팀원 업무 — 담당자 알파순 → 제목 알파순
+      const aA = (a.task.assignees || []).join(',');
+      const aB = (b.task.assignees || []).join(',');
+      if (aA !== aB) return aA.localeCompare(aB);
+    }
+    return a.todo.text.localeCompare(b.todo.text);
   });
+  let prevGroup = null;
   sorted.forEach((item) => {
-    const { source, todo, idx, taskId } = item;
+    const { source, todo, idx, taskId, task, isMine } = item;
+    const curGroup = group(item);
+    // 팀원 업무 진입 시 구분선 삽입
+    if (prevGroup !== null && prevGroup < 4 && curGroup === 4) {
+      const divider = document.createElement('div');
+      divider.className = 'todo-divider';
+      divider.textContent = '— 팀원 업무 —';
+      list.appendChild(divider);
+    }
+    prevGroup = curGroup;
     if (source === 'weekly') {
       const div = document.createElement('div');
-      div.className = 'todo-item' + (todo.done ? ' done' : '');
+      div.className = 'todo-item' + (todo.done ? ' done' : '') + (isMine ? '' : ' teammate');
       div.draggable = true;
       const fullText = '📅 ' + todo.text;
+      // 팀원 업무: 2줄(담당자 + 업무) / 내 업무: 1줄
+      let contentHtml;
+      if (isMine) {
+        contentHtml = `<input type="text" readonly value="${escapeHtml(fullText)}" title="${escapeHtml(fullText)}" style="font-weight:500;">`;
+      } else {
+        const assigneeStr = (task.assignees || []).join(', ');
+        contentHtml = `
+          <div class="todo-multi">
+            <div class="assignee-line">👤 ${escapeHtml(assigneeStr || '미배정')}</div>
+            <div class="task-text" title="${escapeHtml(todo.text)}">📅 ${escapeHtml(todo.text)}</div>
+          </div>
+        `;
+      }
       div.innerHTML = `
         <span class="drag-handle" title="끌어서 일과계획에 추가">⋮⋮</span>
         <input type="checkbox" ${todo.done ? 'checked' : ''}>
-        <input type="text" readonly value="${escapeHtml(fullText)}" title="${escapeHtml(fullText)}" style="font-weight:500;">
+        ${contentHtml}
       `;
       div.addEventListener('dragstart', (e) => {
         div.classList.add('dragging');
@@ -5870,6 +6018,8 @@ function init() {
 
   buildTimelineGrid('timeline-planned', 'planned');
   buildTimelineGrid('timeline-actual', 'actual');
+  // 일회성 backfill: 기존 planned 이벤트 중 todos에 없는 것 동기화
+  if (typeof backfillTodosFromPlannedOnce === 'function') backfillTodosFromPlannedOnce();
   renderAll();
   autoPopulateDelayed();
   renderDelayed();
