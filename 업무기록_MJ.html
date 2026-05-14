@@ -741,6 +741,30 @@
   .weekday-btn.selected {
     background: #8c6d4f; color: #faf5eb; border-color: #8c6d4f;
   }
+  /* ============ 출장 (Trip) ============ */
+  .action-btn.trip-active {
+    background: #c47718; border-color: #c47718; color: #fff;
+  }
+  .action-btn.trip-active:hover { background: #a56011; }
+  .trip-overlay {
+    position: absolute;
+    background: repeating-linear-gradient(
+      45deg, rgba(196, 119, 24, 0.18), rgba(196, 119, 24, 0.18) 10px,
+      rgba(196, 119, 24, 0.32) 10px, rgba(196, 119, 24, 0.32) 20px
+    );
+    border-top: 2px solid #c47718;
+    border-bottom: 2px solid #c47718;
+    pointer-events: none;
+    z-index: 10;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+  .trip-overlay .trip-label {
+    background: #c47718; color: #fff;
+    padding: 4px 10px; font-size: 12px; font-weight: 600;
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  }
+
   /* ============ Outlook 캘린더 가져오기 ============ */
   .outlook-event-list {
     max-height: 360px; overflow-y: auto;
@@ -1053,6 +1077,7 @@
   <div class="actions">
     <button class="action-btn" id="weekly-btn">📅 주간업무</button>
     <button class="action-btn" id="outlook-btn">📅 Outlook</button>
+    <button class="action-btn" id="trip-btn">✈️ 출장</button>
     <button class="action-btn" id="recurring-btn">🔁 되풀이 목록</button>
     <button class="action-btn" id="sync-btn">☁ 동기화<span class="sync-badge" id="sync-badge"></span></button>
     <button class="action-btn primary" id="summary-btn">📝 업무 정리</button>
@@ -1370,6 +1395,49 @@
       <button id="longterm-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
       <button id="longterm-cancel">취소</button>
       <button class="primary" id="longterm-save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 출장 (Trip) 모달 -->
+<div class="modal-backdrop" id="trip-modal">
+  <div class="modal" style="width: 460px;">
+    <h2>✈️ 출장 설정</h2>
+    <p style="font-size: 13px; color: #5c4a38; margin-bottom: 12px;">
+      <span id="trip-modal-date">-</span> 출장으로 설정하면 그 시간 동안의 되풀이 업무가 자동 채워지지 않습니다.
+    </p>
+
+    <label>출장 유형</label>
+    <div class="pattern-type-row" style="margin-bottom: 12px;">
+      <label class="pattern-radio"><input type="radio" name="trip-type" value="full" checked> 하루종일</label>
+      <label class="pattern-radio"><input type="radio" name="trip-type" value="partial"> 시간 지정</label>
+    </div>
+
+    <div id="trip-time-row" style="display: none;">
+      <div class="time-row">
+        <div>
+          <label>시작</label>
+          <div class="time-select-row">
+            <div class="custom-select" id="trip-start-hour"></div>
+            <span>:</span>
+            <div class="custom-select" id="trip-start-min"></div>
+          </div>
+        </div>
+        <div>
+          <label>종료</label>
+          <div class="time-select-row">
+            <div class="custom-select" id="trip-end-hour"></div>
+            <span>:</span>
+            <div class="custom-select" id="trip-end-min"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="trip-clear-btn" style="margin-right:auto;color:#b04040;border-color:#b04040;" hidden>출장 해제</button>
+      <button id="trip-cancel-btn">취소</button>
+      <button class="primary" id="trip-save-btn">저장</button>
     </div>
   </div>
 </div>
@@ -2990,11 +3058,14 @@ function materializeRecurringDaily(dateKey) {
   if (!recurring.daily.length) return false;
   const skipped = getRecurringSkipped();
   const data = getDataForDate(dateKey);
+  const trip = data.trip || null;
   let modified = false;
   for (const tpl of recurring.daily) {
     if (!patternMatchesDate(tpl.pattern, date)) continue;
     if (skipped.daily[`${tpl.id}:${dateKey}`]) continue;
     if ((data.planned || []).some(e => e.recurringId === tpl.id)) continue;
+    // 출장 시간과 겹치면 자동 등록 skip
+    if (trip && tripCoversEvent(trip, { start: tpl.startTime, end: tpl.endTime })) continue;
     data.planned = data.planned || [];
     data.planned.push({
       id: uid(),
@@ -3004,7 +3075,6 @@ function materializeRecurringDaily(dateKey) {
       color: tpl.color,
       recurringId: tpl.id,
     });
-    // 자동 todo 추가 (기존 일과계획 → todo 동기화 패턴 그대로)
     const newTodoText = `${tpl.startTime} ${tpl.title}`;
     if (!data.todos.some(t => t.text === newTodoText)) {
       data.todos.push({ text: newTodoText, done: false });
@@ -4526,6 +4596,125 @@ function syncTodoCheckToPlannedEvent(d, todoText, isDone) {
   }
 }
 
+// ============== 출장 (Trip) — data.trip ==============
+// data.trip 형태:
+//   null/없음     → 출장 없음
+//   { fullDay: true } → 하루종일 출장
+//   { start: 'HH:MM', end: 'HH:MM' } → 부분 시간 출장
+function getTripForDate(dateKey) {
+  const d = getDataForDate(dateKey);
+  return d.trip || null;
+}
+function setTripForDate(dateKey, trip) {
+  const data = getDataForDate(dateKey);
+  if (trip) data.trip = trip; else delete data.trip;
+  // 출장 시간과 겹치는 되풀이 인스턴스 + 매칭 todos 제거
+  if (trip && Array.isArray(data.planned)) {
+    const removedTexts = [];
+    data.planned = data.planned.filter(ev => {
+      if (!ev.recurringId) return true; // 일반 이벤트 유지
+      if (tripCoversEvent(trip, ev)) {
+        removedTexts.push(`${ev.start} ${ev.title}`);
+        return false;
+      }
+      return true;
+    });
+    if (Array.isArray(data.todos) && removedTexts.length > 0) {
+      data.todos = data.todos.filter(t => !removedTexts.includes(t.text));
+    }
+  }
+  saveDataForDate(dateKey, data);
+}
+function tripCoversEvent(trip, ev) {
+  if (!trip || !ev || !ev.start || !ev.end) return false;
+  if (trip.fullDay) return true;
+  const evS = timeStrToMinutes(ev.start);
+  const evE = timeStrToMinutes(ev.end);
+  const trS = timeStrToMinutes(trip.start);
+  const trE = timeStrToMinutes(trip.end);
+  return evS < trE && evE > trS; // 겹침
+}
+
+// ===== 출장 모달 UI =====
+function openTripModal() {
+  const dateKey = formatDateKey(currentDate);
+  const trip = getTripForDate(dateKey);
+  document.getElementById('trip-modal-date').textContent = `${formatDateDisplay(currentDate)} (${formatWeekday(currentDate)})`;
+  // 라디오 + 시간 셋팅
+  const isPartial = trip && !trip.fullDay;
+  document.querySelector('input[name="trip-type"][value="full"]').checked = !isPartial;
+  document.querySelector('input[name="trip-type"][value="partial"]').checked = isPartial;
+  document.getElementById('trip-time-row').style.display = isPartial ? 'block' : 'none';
+  setStartTime(isPartial ? trip.start : '09:00', 'trip');
+  refreshEndOptions(isPartial ? trip.end : '18:00', 'trip');
+  document.getElementById('trip-clear-btn').hidden = !trip;
+  document.getElementById('trip-modal').classList.add('active');
+}
+function closeTripModal() {
+  document.getElementById('trip-modal').classList.remove('active');
+}
+function saveTrip() {
+  const type = document.querySelector('input[name="trip-type"]:checked').value;
+  let trip;
+  if (type === 'full') {
+    trip = { fullDay: true };
+  } else {
+    const start = getTimeSelect('trip-start');
+    const end = getTimeSelect('trip-end');
+    if (!start || !end) { showToast('시간을 입력하세요'); return; }
+    if (timeStrToMinutes(end) <= timeStrToMinutes(start)) { showToast('종료가 시작보다 늦어야 합니다'); return; }
+    trip = { start, end };
+  }
+  setTripForDate(formatDateKey(currentDate), trip);
+  closeTripModal();
+  renderAll();
+  updateTripButtonState();
+  showToast('출장 설정됨 — 겹치는 되풀이 업무 자동 제거');
+}
+function clearTrip() {
+  setTripForDate(formatDateKey(currentDate), null);
+  closeTripModal();
+  renderAll();
+  updateTripButtonState();
+  showToast('출장 해제됨');
+}
+// 헤더 버튼 활성/비활성 스타일 (현재 보이는 날짜 기준)
+function updateTripButtonState() {
+  const btn = document.getElementById('trip-btn');
+  if (!btn) return;
+  const trip = getTripForDate(formatDateKey(currentDate));
+  if (trip) {
+    btn.classList.add('trip-active');
+    btn.textContent = trip.fullDay ? '✈️ 출장 (하루)' : `✈️ 출장 ${trip.start}~${trip.end}`;
+  } else {
+    btn.classList.remove('trip-active');
+    btn.textContent = '✈️ 출장';
+  }
+}
+// 일과계획·실제실행 타임라인에 출장 시간대 시각 오버레이
+// timeline-${type} (events-${type}의 부모) 안에 배치 — renderEvents의 innerHTML 비움에 안 휩쓸림
+function renderTripOverlay() {
+  const trip = getTripForDate(formatDateKey(currentDate));
+  ['planned', 'actual'].forEach(type => {
+    const container = document.getElementById(`timeline-${type}`);
+    if (!container) return;
+    container.querySelectorAll(':scope > .trip-overlay').forEach(el => el.remove());
+    if (!trip) return;
+    const startMin = trip.fullDay ? START_HOUR * 60 : timeStrToMinutes(trip.start);
+    const endMin = trip.fullDay ? END_HOUR * 60 : timeStrToMinutes(trip.end);
+    const top = (startMin - START_HOUR * 60) * PX_PER_MIN;
+    const height = Math.max(20, (endMin - startMin) * PX_PER_MIN);
+    const div = document.createElement('div');
+    div.className = 'trip-overlay';
+    div.style.top = `${top}px`;
+    div.style.left = '70px'; // hour 라벨 영역 비워두기
+    div.style.right = '0';
+    div.style.height = `${height}px`;
+    div.innerHTML = `<span class="trip-label">✈️ 출장 ${trip.fullDay ? '(하루종일)' : trip.start + '~' + trip.end}</span>`;
+    container.appendChild(div);
+  });
+}
+
 // 내 이름 (assignees 비교용) — localStorage로 변경 가능
 function getSelfName() { return localStorage.getItem('worklog-self-name') || '정민재'; }
 function isMyTask(task) {
@@ -4695,28 +4884,69 @@ function renderTodos() {
     });
     list.appendChild(div);
   });
-  // 항상 빈 슬롯 유지
+  // 항상 빈 슬롯 유지 — IME 보존 위해 input destroy 안 하는 패턴
   if (data.todos.length === 0 || data.todos[data.todos.length-1].text !== '') {
-    // 표시용 빈 슬롯 (저장 안 함)
-    const div = document.createElement('div');
-    div.className = 'todo-item';
-    div.innerHTML = `
-      <input type="checkbox" disabled>
-      <input type="text" placeholder="할 일을 입력하세요...">
-    `;
-    const textInput = div.querySelectorAll('input')[1];
-    textInput.addEventListener('input', () => {
-      if (textInput.value) {
-        updateCurrentData(d => { d.todos.push({ text: textInput.value, done: false }); });
-        renderTodos();
-        // focus last
-        const items = document.querySelectorAll('#todo-list .todo-item input[type="text"]');
-        const last = items[data.todos.length];
-        if (last) { last.focus(); last.setSelectionRange(textInput.value.length, textInput.value.length); }
-      }
-    });
-    list.appendChild(div);
+    list.appendChild(_createTodoEmptySlot());
   }
+}
+
+function _createTodoEmptySlot() {
+  const div = document.createElement('div');
+  div.className = 'todo-item';
+  // 모든 요소 미리 포함 (drag-handle, del-x는 visibility hidden) → 첫 글자 입력 시 visibility만 변경
+  div.innerHTML = `
+    <span class="drag-handle" title="끌어서 일과계획에 추가" style="visibility:hidden;">⋮⋮</span>
+    <input type="checkbox" disabled>
+    <input type="text" placeholder="할 일을 입력하세요...">
+    <button class="del-x" style="visibility:hidden;">×</button>
+  `;
+  const dragHandle = div.querySelector('.drag-handle');
+  const checkbox = div.querySelector('input[type="checkbox"]');
+  const textInput = div.querySelector('input[type="text"]');
+  const delBtn = div.querySelector('.del-x');
+  let savedIdx = null;
+  textInput.addEventListener('input', () => {
+    if (savedIdx === null && textInput.value) {
+      // 첫 글자 — 배열에 push, 빈 슬롯 → saved 슬롯으로 변환 (input은 그대로 — IME 보존)
+      updateCurrentData(d => {
+        savedIdx = d.todos.length;
+        d.todos.push({ text: textInput.value, done: false });
+      });
+      textInput.title = textInput.value;
+      // 활성화
+      dragHandle.style.visibility = '';
+      checkbox.disabled = false;
+      delBtn.style.visibility = '';
+      div.draggable = true;
+      div.addEventListener('dragstart', (e) => {
+        div.classList.add('dragging');
+        const clean = (textInput.value || '').replace(/^\d{1,2}:\d{2}\s+/, '');
+        e.dataTransfer.setData('application/x-worklog-todo', clean);
+        e.dataTransfer.setData('application/x-worklog-todo-source', JSON.stringify({source:'daily',text:textInput.value||''}));
+        e.dataTransfer.setData('text/plain', clean);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+      div.addEventListener('dragend', () => div.classList.remove('dragging'));
+      checkbox.addEventListener('change', () => {
+        updateCurrentData(d => {
+          d.todos[savedIdx].done = checkbox.checked;
+          syncTodoCheckToPlannedEvent(d, d.todos[savedIdx].text, checkbox.checked);
+        });
+        renderTodos();
+        renderEvents('planned');
+      });
+      delBtn.addEventListener('click', () => {
+        updateCurrentData(d => { d.todos.splice(savedIdx, 1); });
+        renderTodos();
+      });
+      // 새 빈 슬롯 추가 (현재 input은 그대로 → IME 안 깨짐)
+      document.getElementById('todo-list').appendChild(_createTodoEmptySlot());
+    } else if (savedIdx !== null) {
+      updateCurrentData(d => { d.todos[savedIdx].text = textInput.value; });
+      textInput.title = textInput.value;
+    }
+  });
+  return div;
 }
 
 function renderAchievements() {
@@ -4724,41 +4954,63 @@ function renderAchievements() {
   const list = document.getElementById('achievement-list');
   list.innerHTML = '';
   data.achievements.forEach((text, idx) => {
-    const div = document.createElement('div');
-    div.className = 'priority-item';
-    div.innerHTML = `<span class="num">${idx+1}</span><input type="text" placeholder="성과 ${idx+1}" value="${escapeHtml(text || '')}" title="${escapeHtml(text || '')}"><button class="del-x" style="background:none;border:none;color:#b8a990;cursor:pointer;font-size:14px;opacity:0;transition:opacity 0.15s;">×</button>`;
-    const input = div.querySelector('input');
-    const delBtn = div.querySelector('.del-x');
-    div.addEventListener('mouseenter', () => delBtn.style.opacity = '1');
-    div.addEventListener('mouseleave', () => delBtn.style.opacity = '0');
-    input.addEventListener('input', () => {
-      input.title = input.value;
-      updateCurrentData(d => { d.achievements[idx] = input.value; });
-    });
-    delBtn.addEventListener('click', () => {
-      updateCurrentData(d => { d.achievements.splice(idx, 1); });
-      renderAchievements();
-    });
-    list.appendChild(div);
+    list.appendChild(_createAchievementSavedSlot(text, idx));
   });
   // 빈 슬롯
   if (data.achievements.length === 0 || data.achievements[data.achievements.length-1] !== '') {
-    const div = document.createElement('div');
-    div.className = 'priority-item';
-    const nextNum = data.achievements.length + 1;
-    div.innerHTML = `<span class="num">${nextNum}</span><input type="text" placeholder="성과 ${nextNum}">`;
-    const input = div.querySelector('input');
-    input.addEventListener('input', () => {
-      if (input.value) {
-        updateCurrentData(d => { d.achievements.push(input.value); });
-        renderAchievements();
-        const items = document.querySelectorAll('#achievement-list .priority-item input');
-        const last = items[data.achievements.length];
-        if (last) { last.focus(); last.setSelectionRange(input.value.length, input.value.length); }
-      }
-    });
-    list.appendChild(div);
+    list.appendChild(_createAchievementEmptySlot());
   }
+}
+function _createAchievementSavedSlot(text, idx) {
+  const div = document.createElement('div');
+  div.className = 'priority-item';
+  div.innerHTML = `<span class="num">${idx+1}</span><input type="text" placeholder="성과 ${idx+1}" value="${escapeHtml(text || '')}" title="${escapeHtml(text || '')}"><button class="del-x" style="background:none;border:none;color:#b8a990;cursor:pointer;font-size:14px;opacity:0;transition:opacity 0.15s;">×</button>`;
+  const input = div.querySelector('input');
+  const delBtn = div.querySelector('.del-x');
+  div.addEventListener('mouseenter', () => delBtn.style.opacity = '1');
+  div.addEventListener('mouseleave', () => delBtn.style.opacity = '0');
+  input.addEventListener('input', () => {
+    input.title = input.value;
+    updateCurrentData(d => { d.achievements[idx] = input.value; });
+  });
+  delBtn.addEventListener('click', () => {
+    updateCurrentData(d => { d.achievements.splice(idx, 1); });
+    renderAchievements();
+  });
+  return div;
+}
+function _createAchievementEmptySlot() {
+  const data = getCurrentData();
+  const nextNum = data.achievements.length + 1;
+  const div = document.createElement('div');
+  div.className = 'priority-item';
+  // del-x를 미리 포함(visibility:hidden) → 첫 글자 입력 시 visibility만 변경 (input은 destroy 안 함 → IME 안 깨짐)
+  div.innerHTML = `<span class="num">${nextNum}</span><input type="text" placeholder="성과 ${nextNum}"><button class="del-x" style="background:none;border:none;color:#b8a990;cursor:pointer;font-size:14px;opacity:0;transition:opacity 0.15s;visibility:hidden;">×</button>`;
+  const input = div.querySelector('input');
+  const delBtn = div.querySelector('.del-x');
+  let savedIdx = null;
+  input.addEventListener('input', () => {
+    input.title = input.value;
+    if (savedIdx === null && input.value) {
+      // 첫 글자 입력 — 배열에 push + 활성 슬롯으로 변환 (input 그대로 유지)
+      updateCurrentData(d => {
+        savedIdx = d.achievements.length;
+        d.achievements.push(input.value);
+      });
+      delBtn.style.visibility = 'visible';
+      div.addEventListener('mouseenter', () => delBtn.style.opacity = '1');
+      div.addEventListener('mouseleave', () => delBtn.style.opacity = '0');
+      delBtn.addEventListener('click', () => {
+        updateCurrentData(d => { d.achievements.splice(savedIdx, 1); });
+        renderAchievements();
+      });
+      // 새 빈 슬롯 아래에 append (기존 input은 그대로 — IME 보존)
+      document.getElementById('achievement-list').appendChild(_createAchievementEmptySlot());
+    } else if (savedIdx !== null) {
+      updateCurrentData(d => { d.achievements[savedIdx] = input.value; });
+    }
+  });
+  return div;
 }
 
 // ============== 렌더링: Timeline ==============
@@ -6010,6 +6262,8 @@ function renderAll() {
   renderEvents('planned');
   renderEvents('actual');
   renderNowLine();
+  if (typeof renderTripOverlay === 'function') renderTripOverlay();
+  if (typeof updateTripButtonState === 'function') updateTripButtonState();
 }
 
 // ============== 초기화 ==============
@@ -6018,12 +6272,15 @@ function init() {
   [
     'event-start-hour','event-start-min','event-end-hour','event-end-min',
     'recurring-edit-start-hour','recurring-edit-start-min','recurring-edit-end-hour','recurring-edit-end-min',
+    'trip-start-hour','trip-start-min','trip-end-hour','trip-end-min',
   ].forEach(initCustomSelect);
   populateStartSelects('event');
   populateStartSelects('recurring-edit');
-  // 시작 시간 변경 시 종료 옵션 자동 갱신 (양 모달 동일)
+  populateStartSelects('trip');
+  // 시작 시간 변경 시 종료 옵션 자동 갱신
   bindTimeSelectChain('event');
   bindTimeSelectChain('recurring-edit');
+  bindTimeSelectChain('trip');
 
   buildTimelineGrid('timeline-planned', 'planned');
   buildTimelineGrid('timeline-actual', 'actual');
@@ -6141,6 +6398,20 @@ function init() {
   document.getElementById('week-today').addEventListener('click', () => {
     currentWeekStart = getMondayOf(new Date());
     renderWeekly();
+  });
+
+  // 출장 모달 바인딩
+  document.getElementById('trip-btn').addEventListener('click', openTripModal);
+  document.getElementById('trip-cancel-btn').addEventListener('click', closeTripModal);
+  document.getElementById('trip-save-btn').addEventListener('click', saveTrip);
+  document.getElementById('trip-clear-btn').addEventListener('click', clearTrip);
+  document.getElementById('trip-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'trip-modal') closeTripModal();
+  });
+  document.querySelectorAll('input[name="trip-type"]').forEach(r => {
+    r.addEventListener('change', () => {
+      document.getElementById('trip-time-row').style.display = r.value === 'partial' && r.checked ? 'block' : 'none';
+    });
   });
 
   // Outlook 모달 바인딩
@@ -6327,11 +6598,11 @@ function init() {
     if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
   });
 
-  // ESC 시 되풀이/Outlook 모달도 같이 닫기
+  // ESC 시 되풀이/Outlook/출장 모달도 같이 닫기
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeRecurringModal(); closeRecurringEditModal(); closeChoiceModal();
-      closeOutlookModal();
+      closeOutlookModal(); closeTripModal();
     }
   });
 
