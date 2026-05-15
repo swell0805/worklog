@@ -741,6 +741,206 @@
   .weekday-btn.selected {
     background: #8c6d4f; color: #faf5eb; border-color: #8c6d4f;
   }
+  /* ============ 아이디어 (Ideas) ============ */
+  .action-btn.idea-btn {
+    background: rgba(255, 220, 100, 0.18);
+    border-color: #d4b94a;
+  }
+  .action-btn.idea-btn:hover { background: rgba(255, 220, 100, 0.35); }
+  .ideas-list {
+    max-height: 55vh; overflow-y: auto; margin-top: 12px;
+    border: 1px solid #e0d5c3; border-radius: 4px; background: #fdfaf3;
+  }
+  .ideas-empty {
+    padding: 30px; text-align: center; color: #a89a84;
+    font-size: 13px; font-style: italic;
+  }
+  .idea-card {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 12px 14px; border-bottom: 1px solid #ede2cf;
+    cursor: pointer; transition: background 0.1s;
+  }
+  .idea-card:last-child { border-bottom: none; }
+  .idea-card:hover { background: #f5ead2; }
+  .idea-card .ic-main { flex: 1; min-width: 0; }
+  .idea-card .ic-title {
+    font-size: 14px; color: #3a2e24; font-weight: 600; margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .idea-card .ic-meta {
+    font-size: 11px; color: #6b5c4a;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .idea-status {
+    padding: 2px 8px; border-radius: 3px; font-size: 11px;
+    font-weight: 600; flex-shrink: 0;
+  }
+  .idea-status.active { background: #d8e3ec; color: #2c5870; }
+  .idea-status.paused { background: #ede2cf; color: #6b5c4a; }
+  .idea-status.closed { background: #d4d4d4; color: #5a5a5a; }
+  .idea-card.closed .ic-title { text-decoration: line-through; opacity: 0.6; }
+
+  /* 아이디어 상세 — 진행 로그 토글/탭 */
+  .idea-log-toggle {
+    margin-top: 14px; padding: 10px 12px;
+    background: #f5ead2; border: 1px solid #d4c5ae;
+    border-radius: 4px; cursor: pointer; font-size: 13px;
+    color: #5c4a38; display: flex; justify-content: space-between; align-items: center;
+    user-select: none;
+  }
+  .idea-log-toggle:hover { background: #ede2cf; }
+  .idea-log-panel {
+    border: 1px solid #d4c5ae; border-top: none; border-radius: 0 0 4px 4px;
+    background: #fdfaf3; padding: 10px 12px;
+  }
+  .idea-log-tabs {
+    display: flex; gap: 4px; margin-bottom: 10px;
+    border-bottom: 1px solid #e0d5c3;
+  }
+  .idea-log-tab {
+    padding: 6px 12px; background: transparent; border: none;
+    cursor: pointer; font-size: 12px; color: #6b5c4a;
+    border-bottom: 2px solid transparent;
+  }
+  .idea-log-tab.active {
+    color: #3a2e24; font-weight: 600; border-bottom-color: #8c6d4f;
+  }
+  .idea-log-summary textarea {
+    width: 100%; min-height: 100px;
+    padding: 8px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fff; font-size: 13px; color: #3a2e24;
+    font-family: inherit; resize: vertical; outline: none;
+  }
+  .idea-log-summary textarea:focus { border-color: #8c6d4f; }
+  .idea-log-entries {
+    max-height: 250px; overflow-y: auto;
+  }
+  .idea-log-entry {
+    padding: 8px 10px; border-bottom: 1px dashed #ede2cf;
+    font-size: 12px; color: #3a2e24; line-height: 1.5;
+  }
+  .idea-log-entry:last-child { border-bottom: none; }
+  .idea-log-entry .lt {
+    color: #8c6d4f; font-size: 11px; font-family: 'Consolas', monospace;
+    margin-right: 8px;
+  }
+  .idea-log-entry .lx {
+    background: none; border: none; color: #b8a990;
+    cursor: pointer; font-size: 14px; float: right; line-height: 1;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .idea-log-entry:hover .lx { opacity: 1; }
+  .idea-log-add {
+    margin-top: 8px; display: flex; gap: 6px;
+  }
+  .idea-log-add textarea {
+    flex: 1; padding: 6px 8px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fff; font-size: 12px; color: #3a2e24;
+    font-family: inherit; resize: vertical; outline: none; min-height: 36px;
+  }
+  .idea-log-add textarea:focus { border-color: #8c6d4f; }
+  .idea-log-add button {
+    background: #8c6d4f; color: #fff; border: none; border-radius: 4px;
+    padding: 0 14px; cursor: pointer; font-size: 12px; font-weight: 600;
+    flex-shrink: 0;
+  }
+  .idea-log-add button:hover { background: #5c4a38; }
+
+  /* 상세 모달 본문 textarea */
+  .idea-content-textarea {
+    width: 100%; min-height: 140px;
+    padding: 10px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fff; font-size: 13px; color: #3a2e24;
+    font-family: inherit; resize: vertical; outline: none; line-height: 1.5;
+  }
+  .idea-content-textarea:focus { border-color: #8c6d4f; }
+  .idea-status-row {
+    display: flex; gap: 12px; margin: 8px 0 14px;
+    padding: 8px 12px; background: #f5ead2; border-radius: 4px;
+  }
+  .idea-status-row label {
+    display: flex; align-items: center; gap: 5px;
+    cursor: pointer; font-size: 13px;
+  }
+  .idea-status-row input[type="radio"] { accent-color: #8c6d4f; }
+
+  /* 태그 chip 입력 */
+  .idea-tags-row {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .idea-tags-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    min-height: 4px;
+  }
+  .idea-tag-chip {
+    background: #ede2cf; color: #5c4a38;
+    padding: 4px 10px 4px 12px; border-radius: 12px;
+    font-size: 12px; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .idea-tag-chip .tx {
+    background: none; border: none; color: #8c6d4f;
+    cursor: pointer; font-size: 14px; line-height: 1; padding: 0 0 0 4px;
+  }
+  .idea-tag-chip .tx:hover { color: #b04040; }
+  .idea-tag-input {
+    width: 100%; padding: 7px 10px; border: 1px solid #d4c5ae;
+    border-radius: 4px; background: #fdfaf3; font-size: 13px;
+    color: #3a2e24; outline: none;
+  }
+  .idea-tag-input:focus { border-color: #8c6d4f; }
+
+  /* 업무 모달 안 — 관련 아이디어 섹션 */
+  .related-ideas-section {
+    margin-top: 14px; padding: 10px 12px;
+    background: rgba(255, 220, 100, 0.12);
+    border: 1px solid #d4b94a; border-radius: 4px;
+  }
+  .related-ideas-section .ris-label {
+    font-size: 12px; color: #5c4a38; font-weight: 600; margin-bottom: 6px;
+  }
+  .related-ideas-list {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .related-idea-chip {
+    background: #fff8d6; color: #5c4a38;
+    border: 1px solid #d4b94a; border-radius: 12px;
+    padding: 4px 10px; font-size: 12px;
+    cursor: pointer; max-width: 280px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .related-idea-chip:hover { background: #fff1a8; }
+  .related-ideas-empty {
+    font-size: 12px; color: #8c6d4f; font-style: italic;
+  }
+
+  /* AI 분석 버튼/패널 */
+  .idea-ai-btn {
+    margin-top: 6px; padding: 8px 14px;
+    background: #5c4a38; color: #fff; border: none;
+    border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+    align-self: flex-start;
+  }
+  .idea-ai-btn:hover { background: #3a2e24; }
+  .idea-ai-panel {
+    margin-top: 8px; padding: 10px 12px;
+    background: #f5ead2; border: 1px solid #d4c5ae; border-radius: 4px;
+  }
+  .ai-step {
+    font-size: 12px; color: #5c4a38; margin-bottom: 4px; line-height: 1.5;
+  }
+  #idea-ai-response {
+    width: 100%; min-height: 80px; margin-top: 6px;
+    padding: 8px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fff; font-size: 12px; color: #3a2e24;
+    font-family: 'Consolas', monospace; resize: vertical; outline: none;
+  }
+  #idea-ai-response:focus { border-color: #8c6d4f; }
+
+  /* 💡 배지 — 관련 아이디어가 있는 업무 카드/이벤트 표시 */
+  .has-idea-prefix {
+    color: #c47718; font-size: 11px; margin-right: 3px;
+  }
+
   /* ============ 출장 (Trip) ============ */
   .action-btn.trip-active {
     background: #c47718; border-color: #c47718; color: #fff;
@@ -1078,6 +1278,7 @@
     <button class="action-btn" id="weekly-btn">📅 주간업무</button>
     <button class="action-btn" id="outlook-btn">📅 Outlook</button>
     <button class="action-btn" id="trip-btn">✈️ 출장</button>
+    <button class="action-btn idea-btn" id="ideas-btn">💡 아이디어</button>
     <button class="action-btn" id="recurring-btn">🔁 되풀이 목록</button>
     <button class="action-btn" id="sync-btn">☁ 동기화<span class="sync-badge" id="sync-badge"></span></button>
     <button class="action-btn primary" id="summary-btn">📝 업무 정리</button>
@@ -1214,6 +1415,8 @@
         </div>
       </div>
     </div>
+
+    <div class="related-ideas-section" id="event-related-ideas"></div>
 
     <div class="modal-actions">
       <button id="event-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
@@ -1391,6 +1594,8 @@
       </div>
     </div>
 
+    <div class="related-ideas-section" id="longterm-related-ideas"></div>
+
     <div class="modal-actions">
       <button id="longterm-delete" style="margin-right:auto;color:#b04040;border-color:#b04040;">삭제</button>
       <button id="longterm-cancel">취소</button>
@@ -1438,6 +1643,83 @@
       <button id="trip-clear-btn" style="margin-right:auto;color:#b04040;border-color:#b04040;" hidden>출장 해제</button>
       <button id="trip-cancel-btn">취소</button>
       <button class="primary" id="trip-save-btn">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 아이디어 목록 모달 -->
+<div class="modal-backdrop" id="ideas-modal">
+  <div class="modal" style="width: 640px;">
+    <h2>💡 아이디어</h2>
+    <div class="settings-tabs" id="ideas-tabs">
+      <button class="settings-tab active" data-itab="all">전체</button>
+      <button class="settings-tab" data-itab="active">진행중</button>
+      <button class="settings-tab" data-itab="paused">보류</button>
+      <button class="settings-tab" data-itab="closed">종료</button>
+    </div>
+    <div class="ideas-list" id="ideas-list"></div>
+    <div class="modal-actions">
+      <button id="ideas-add-btn" class="primary">+ 새 아이디어</button>
+      <button id="ideas-close-btn" style="margin-left:auto;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 아이디어 상세 모달 -->
+<div class="modal-backdrop" id="idea-detail-modal">
+  <div class="modal" style="width: 640px;">
+    <h2 id="idea-detail-title-h">💡 아이디어</h2>
+    <label>제목</label>
+    <input type="text" id="idea-title" placeholder="아이디어 제목 (한 줄 요약)">
+    <div class="idea-status-row">
+      <label><input type="radio" name="idea-status" value="active" checked> 진행중</label>
+      <label><input type="radio" name="idea-status" value="paused"> 보류</label>
+      <label><input type="radio" name="idea-status" value="closed"> 종료</label>
+    </div>
+    <label>본문 (현재 발전 상태 — 자유롭게 수정)</label>
+    <textarea id="idea-content" class="idea-content-textarea" placeholder="아이디어를 자유롭게 발전시켜 보세요..."></textarea>
+
+    <label>🔗 연관 태그 — 카테고리명/키워드 입력 시, 그 단어를 포함한 업무에서 자동으로 이 아이디어가 보임</label>
+    <div class="idea-tags-row">
+      <div class="idea-tags-chips" id="idea-tags-chips"></div>
+      <input type="text" id="idea-tag-input" placeholder="태그 입력 후 Enter (예: NCC, 검체, F1. 시장진출)" class="idea-tag-input">
+      <button id="idea-ai-btn" class="idea-ai-btn">🤖 Claude로 태그·요약 자동 생성</button>
+      <div id="idea-ai-panel" class="idea-ai-panel" hidden>
+        <div class="ai-step">1️⃣ 위 버튼 클릭으로 프롬프트 클립보드 복사 → Claude Code에 붙여넣기</div>
+        <div class="ai-step">2️⃣ Claude 응답 (JSON)을 아래에 붙여넣고 "적용"</div>
+        <textarea id="idea-ai-response" placeholder='{"tags": ["..."], "summary": "..."}'></textarea>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <button id="idea-ai-apply-btn" class="primary">적용</button>
+          <button id="idea-ai-cancel-btn">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="idea-log-toggle" id="idea-log-toggle">
+      <span>📜 진행 로그 보기</span>
+      <span id="idea-log-toggle-arrow">▾</span>
+    </div>
+    <div class="idea-log-panel" id="idea-log-panel" hidden>
+      <div class="idea-log-tabs">
+        <button class="idea-log-tab active" data-ltab="summary">📝 요약</button>
+        <button class="idea-log-tab" data-ltab="raw">📜 원문 로그</button>
+      </div>
+      <div class="idea-log-summary" data-ltab-content="summary">
+        <textarea id="idea-summary" placeholder="요약 — 직접 작성하거나, 이후 AI 자동 요약 기능 연동 예정"></textarea>
+      </div>
+      <div class="idea-log-summary" data-ltab-content="raw" hidden>
+        <div class="idea-log-entries" id="idea-log-entries"></div>
+        <div class="idea-log-add">
+          <textarea id="idea-log-new" placeholder="새 로그 항목 (시간 자동 기록, 추가 후 수정 불가)"></textarea>
+          <button id="idea-log-add-btn">추가</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="idea-delete-btn" style="margin-right:auto;color:#b04040;border-color:#b04040;" hidden>삭제</button>
+      <button id="idea-cancel-btn">취소</button>
+      <button class="primary" id="idea-save-btn">저장</button>
     </div>
   </div>
 </div>
@@ -2800,7 +3082,7 @@ function renderLongTerm() {
     div.innerHTML = `
       <input type="checkbox" class="done-check" ${task.done ? 'checked' : ''}>
       <div class="longterm-content">
-        <div class="longterm-title">${escapeHtml(task.title)}</div>
+        <div class="longterm-title">${(typeof findRelatedIdeas==='function' && findRelatedIdeas(task).length>0) ? '<span class="has-idea-prefix" title="관련 아이디어 있음">💡</span>' : ''}${escapeHtml(task.title)}</div>
         <div class="longterm-date">
           ${ddayText ? `<span class="dday ${cls}">${ddayText}</span>` : ''}
           <span>${task.targetDate ? task.targetDate.replaceAll('-', '.') : '목표일 미정'}</span>
@@ -3697,7 +3979,7 @@ function createWeekTaskCard(task) {
   tDiv.innerHTML = `
     <input type="checkbox" ${task.done ? 'checked' : ''}>
     <div class="t">
-      <div class="title-text">${escapeHtml(task.title)}</div>
+      <div class="title-text">${(typeof findRelatedIdeas==='function' && findRelatedIdeas(task).length>0) ? '<span class="has-idea-prefix" title="관련 아이디어 있음">💡</span>' : ''}${escapeHtml(task.title)}</div>
       ${taskMetaHTML(task)}
     </div>
     <button class="del-x">×</button>
@@ -3919,6 +4201,11 @@ function openLongTermModal(task, presetDate, presetWeekStart) {
     rcSection.style.display = 'none';
   }
   setupPatternPicker(document.getElementById('lt-pattern-picker'), initialPattern || { type: 'weekly', weekdays: [1] });
+
+  // 💡 관련 아이디어 (자동 매칭)
+  if (typeof renderRelatedIdeasInTaskModal === 'function') {
+    renderRelatedIdeasInTaskModal('longterm-related-ideas', task);
+  }
 
   setTimeout(() => document.getElementById('longterm-title').focus(), 50);
 }
@@ -4596,6 +4883,402 @@ function syncTodoCheckToPlannedEvent(d, todoText, isDone) {
   }
 }
 
+// ============== 아이디어 (Ideas) ==============
+const IDEA_STATUSES = [
+  { value: 'active', label: '진행중' },
+  { value: 'paused', label: '보류' },
+  { value: 'closed', label: '종료' },
+];
+let currentIdeaTab = 'all';
+let currentEditingIdea = null;        // null = 신규, 객체 = 편집
+let currentIdeaLogTab = 'summary';
+
+function getIdeas() {
+  const raw = localStorage.getItem('worklog-ideas');
+  if (raw) {
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch(e) {}
+  }
+  return [];
+}
+function saveIdeas(ideas) {
+  localStorage.setItem('worklog-ideas', JSON.stringify(ideas));
+  if (typeof scheduleAutoSync === 'function') scheduleAutoSync();
+}
+function ideaStatusLabel(status) {
+  const s = IDEA_STATUSES.find(x => x.value === status);
+  return s ? s.label : status;
+}
+function ideaTimeLabel(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  } catch(e) { return ts; }
+}
+
+function openIdeasModal() {
+  document.getElementById('ideas-modal').classList.add('active');
+  currentIdeaTab = 'all';
+  document.querySelectorAll('#ideas-tabs .settings-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.itab === 'all'));
+  renderIdeasList();
+}
+function closeIdeasModal() {
+  document.getElementById('ideas-modal').classList.remove('active');
+}
+
+function renderIdeasList() {
+  const list = document.getElementById('ideas-list');
+  let ideas = getIdeas();
+  if (currentIdeaTab !== 'all') {
+    ideas = ideas.filter(i => i.status === currentIdeaTab);
+  }
+  // 정렬: 전체 탭에선 상태 우선(진행→보류→종료) + 그룹 내 최근 수정 순. 다른 탭은 최근 수정만
+  const statusOrder = { active: 0, paused: 1, closed: 2 };
+  ideas.sort((a, b) => {
+    if (currentIdeaTab === 'all') {
+      const so = (statusOrder[a.status] ?? 99) - (statusOrder[b.status] ?? 99);
+      if (so !== 0) return so;
+    }
+    return (b.updatedAt || 0) - (a.updatedAt || 0);
+  });
+  list.innerHTML = '';
+  if (ideas.length === 0) {
+    list.innerHTML = '<div class="ideas-empty">아이디어가 없습니다. "+ 새 아이디어" 버튼으로 시작하세요.</div>';
+    return;
+  }
+  ideas.forEach(idea => {
+    const div = document.createElement('div');
+    div.className = 'idea-card' + (idea.status === 'closed' ? ' closed' : '');
+    const logCount = (idea.log || []).length;
+    div.innerHTML = `
+      <div class="ic-main">
+        <div class="ic-title">${escapeHtml(idea.title || '(제목 없음)')}</div>
+        <div class="ic-meta">
+          <span class="idea-status ${idea.status}">${ideaStatusLabel(idea.status)}</span>
+          <span>최근 수정: ${escapeHtml(ideaTimeLabel(idea.updatedAt))}</span>
+          ${logCount > 0 ? `<span>📜 ${logCount}개 로그</span>` : ''}
+        </div>
+      </div>
+    `;
+    div.addEventListener('click', () => openIdeaDetailModal(idea));
+    list.appendChild(div);
+  });
+}
+
+function openIdeaDetailModal(idea) {
+  currentEditingIdea = idea ? { ...idea, log: [...(idea.log || [])], linkedTags: [...(idea.linkedTags || [])] } : null;
+  const isNew = !idea;
+  document.getElementById('idea-detail-title-h').textContent = isNew ? '💡 새 아이디어' : '💡 아이디어 편집';
+  document.getElementById('idea-title').value = idea?.title || '';
+  document.getElementById('idea-content').value = idea?.content || '';
+  document.getElementById('idea-summary').value = idea?.summary || '';
+  // 상태 라디오
+  const status = idea?.status || 'active';
+  document.querySelector(`input[name="idea-status"][value="${status}"]`).checked = true;
+  // 태그 chips
+  renderIdeaTagChips();
+  document.getElementById('idea-tag-input').value = '';
+  // AI 패널 초기화 (닫힌 상태로)
+  document.getElementById('idea-ai-panel').hidden = true;
+  document.getElementById('idea-ai-response').value = '';
+  // 로그 panel 닫혀있게 시작
+  document.getElementById('idea-log-panel').hidden = true;
+  document.getElementById('idea-log-toggle-arrow').textContent = '▾';
+  // 로그 탭 — 요약 기본
+  switchIdeaLogTab('summary');
+  // 로그 entries 렌더
+  renderIdeaLogEntries();
+  // 신규 입력칸 비움
+  document.getElementById('idea-log-new').value = '';
+  // 삭제 버튼 (신규엔 숨김)
+  document.getElementById('idea-delete-btn').hidden = isNew;
+  document.getElementById('idea-detail-modal').classList.add('active');
+  setTimeout(() => document.getElementById('idea-title').focus(), 50);
+}
+function closeIdeaDetailModal() {
+  document.getElementById('idea-detail-modal').classList.remove('active');
+  currentEditingIdea = null;
+}
+
+function toggleIdeaLogPanel() {
+  const panel = document.getElementById('idea-log-panel');
+  panel.hidden = !panel.hidden;
+  document.getElementById('idea-log-toggle-arrow').textContent = panel.hidden ? '▾' : '▴';
+}
+
+function switchIdeaLogTab(tab) {
+  currentIdeaLogTab = tab;
+  document.querySelectorAll('.idea-log-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.ltab === tab));
+  document.querySelectorAll('[data-ltab-content]').forEach(div => {
+    div.hidden = div.dataset.ltabContent !== tab;
+  });
+}
+
+function renderIdeaLogEntries() {
+  const container = document.getElementById('idea-log-entries');
+  const entries = (currentEditingIdea && currentEditingIdea.log) || [];
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="ideas-empty" style="padding:14px;">로그 항목이 없습니다. 아래에서 추가하세요.</div>';
+    return;
+  }
+  // 시간순 (최신이 위)
+  const sorted = [...entries].sort((a, b) => (b.at || 0) - (a.at || 0));
+  container.innerHTML = sorted.map((e, idx) => `
+    <div class="idea-log-entry" data-log-at="${e.at}">
+      <button class="lx" data-at="${e.at}" title="이 로그 항목 삭제">×</button>
+      <span class="lt">${escapeHtml(ideaTimeLabel(e.at))}</span>
+      <span>${escapeHtml(e.text || '').replace(/\n/g, '<br>')}</span>
+    </div>
+  `).join('');
+  container.querySelectorAll('.lx').forEach(btn => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      if (!confirm('이 로그 항목을 삭제할까요?')) return;
+      const at = btn.dataset.at;
+      if (!currentEditingIdea) return;
+      currentEditingIdea.log = (currentEditingIdea.log || []).filter(e => String(e.at) !== String(at));
+      renderIdeaLogEntries();
+    });
+  });
+}
+
+// 태그 chip 렌더링
+function renderIdeaTagChips() {
+  const wrap = document.getElementById('idea-tags-chips');
+  const tags = (currentEditingIdea && currentEditingIdea.linkedTags) || [];
+  if (tags.length === 0) {
+    wrap.innerHTML = '<span style="color:#a89a84; font-size:11px; font-style:italic;">아직 없음</span>';
+    return;
+  }
+  wrap.innerHTML = tags.map(t => `
+    <span class="idea-tag-chip" data-tag="${escapeHtml(t)}">
+      ${escapeHtml(t)}
+      <button class="tx" data-tag="${escapeHtml(t)}" title="삭제">×</button>
+    </span>
+  `).join('');
+  wrap.querySelectorAll('.tx').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tag = btn.dataset.tag;
+      if (!currentEditingIdea) return;
+      currentEditingIdea.linkedTags = (currentEditingIdea.linkedTags || []).filter(t => t !== tag);
+      renderIdeaTagChips();
+    });
+  });
+}
+
+// Enter 또는 콤마로 태그 추가
+function ideaTagInputKeydown(e) {
+  if (e.key !== 'Enter' && e.key !== ',') return;
+  e.preventDefault();
+  const input = e.target;
+  const text = input.value.trim().replace(/,$/, '').trim();
+  if (!text) return;
+  if (!currentEditingIdea) currentEditingIdea = { id: uid(), log: [], linkedTags: [] };
+  if (!Array.isArray(currentEditingIdea.linkedTags)) currentEditingIdea.linkedTags = [];
+  if (!currentEditingIdea.linkedTags.includes(text)) {
+    currentEditingIdea.linkedTags.push(text);
+  }
+  input.value = '';
+  renderIdeaTagChips();
+}
+
+// 업무 ↔ 아이디어 자동 매칭
+// 매칭 기준: idea.linkedTags 중 어느 하나라도 task.title 또는 task.category에 부분 포함
+// (대소문자 무시). 종료(closed) 아이디어는 surface 안 함.
+function findRelatedIdeas(task) {
+  if (!task) return [];
+  const title = (task.title || '').toLowerCase();
+  const cat = (task.category || '').toLowerCase();
+  if (!title && !cat) return [];
+  return getIdeas().filter(idea => {
+    if (idea.status === 'closed') return false;
+    const tags = idea.linkedTags || [];
+    if (tags.length === 0) return false;
+    return tags.some(tag => {
+      const t = String(tag).toLowerCase();
+      return (title && title.includes(t)) || (cat && cat.includes(t));
+    });
+  });
+}
+
+// 업무 모달 안 "💡 관련 아이디어" 섹션 렌더링
+function renderRelatedIdeasInTaskModal(containerId, task) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const matches = findRelatedIdeas(task);
+  if (matches.length === 0) {
+    container.innerHTML = `<div class="ris-label">💡 관련 아이디어</div><div class="related-ideas-empty">매칭되는 아이디어 없음 (아이디어 모달에서 태그 추가하면 자동 매칭)</div>`;
+    return;
+  }
+  container.innerHTML = `
+    <div class="ris-label">💡 관련 아이디어 ${matches.length}개</div>
+    <div class="related-ideas-list">
+      ${matches.map(i => `<button class="related-idea-chip" data-idea-id="${escapeHtml(i.id)}" title="${escapeHtml(i.title)}">${escapeHtml(i.title)}</button>`).join('')}
+    </div>
+  `;
+  container.querySelectorAll('.related-idea-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.ideaId;
+      const idea = getIdeas().find(x => x.id === id);
+      if (idea) openIdeaDetailModal(idea);
+    });
+  });
+}
+
+// ===== AI 자동 태그·요약 (Claude Code 연동) =====
+function buildIdeaAIPrompt() {
+  const title = document.getElementById('idea-title').value.trim();
+  const content = document.getElementById('idea-content').value.trim();
+  const log = (currentEditingIdea && currentEditingIdea.log) || [];
+  const settings = getSettings();
+  const cats = settings.categories.length
+    ? settings.categories.map(c => `"${c}"`).join(', ')
+    : '(아직 등록된 카테고리 없음)';
+  const logText = log.length
+    ? log.map(e => `[${ideaTimeLabel(e.at)}] ${e.text}`).join('\n')
+    : '(없음)';
+
+  let p = `# 아이디어 분석 — 태그 자동 생성 + 요약\n\n`;
+  p += `## 입력\n`;
+  p += `- **제목**: ${title || '(제목 없음)'}\n`;
+  p += `- **본문**:\n\`\`\`\n${content || '(본문 없음)'}\n\`\`\`\n`;
+  p += `- **진행 로그 (시간순, 가장 최근이 마지막)**:\n\`\`\`\n${logText}\n\`\`\`\n\n`;
+  p += `## 작업\n`;
+  p += `1. **태그 추출** (3~7개): 이 아이디어와 관련된 핵심 키워드. 다음 카테고리에 매칭되는 단어가 있으면 그걸 우선 사용, 그 외엔 자유 키워드.\n`;
+  p += `   - 등록된 카테고리: ${cats}\n`;
+  p += `2. **요약 작성** (3~6줄, 한국어): 아이디어 핵심 + (로그가 있으면) 어떻게 발전했는지의 흐름까지 정리.\n\n`;
+  p += `## 출력 형식 (이대로만, 다른 설명 없이)\n\n`;
+  p += '```json\n';
+  p += `{\n`;
+  p += `  "tags": ["태그1", "태그2", "태그3"],\n`;
+  p += `  "summary": "첫 줄 요약\\n다음 줄...\\n발전 과정 정리..."\n`;
+  p += `}\n`;
+  p += '```\n';
+  return p;
+}
+
+async function copyIdeaAIPrompt() {
+  const title = document.getElementById('idea-title').value.trim();
+  const content = document.getElementById('idea-content').value.trim();
+  if (!title && !content) { showToast('제목이나 본문을 먼저 입력해주세요'); return; }
+  const prompt = buildIdeaAIPrompt();
+  try {
+    await navigator.clipboard.writeText(prompt);
+    document.getElementById('idea-ai-panel').hidden = false;
+    document.getElementById('idea-ai-response').focus();
+    showToast('프롬프트 복사됨 — Claude Code에 붙여넣고 응답 받기');
+  } catch(e) {
+    showToast('복사 실패: ' + e.message);
+  }
+}
+
+function applyIdeaAIResponse() {
+  const raw = document.getElementById('idea-ai-response').value.trim();
+  if (!raw) { showToast('Claude 응답을 붙여넣어 주세요'); return; }
+  let cleaned = raw;
+  const m = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (m) cleaned = m[1].trim();
+  let parsed;
+  try { parsed = JSON.parse(cleaned); }
+  catch(e) { showToast('JSON 파싱 실패: ' + e.message); return; }
+
+  if (!currentEditingIdea) currentEditingIdea = { id: uid(), log: [], linkedTags: [] };
+  if (!Array.isArray(currentEditingIdea.linkedTags)) currentEditingIdea.linkedTags = [];
+
+  let addedTags = 0;
+  if (Array.isArray(parsed.tags)) {
+    parsed.tags.forEach(t => {
+      const tag = String(t || '').trim();
+      if (tag && !currentEditingIdea.linkedTags.includes(tag)) {
+        currentEditingIdea.linkedTags.push(tag);
+        addedTags++;
+      }
+    });
+    renderIdeaTagChips();
+  }
+  let summaryUpdated = false;
+  if (typeof parsed.summary === 'string' && parsed.summary.trim()) {
+    document.getElementById('idea-summary').value = parsed.summary.trim();
+    summaryUpdated = true;
+    // 로그 패널 자동 펼치고 요약 탭으로
+    document.getElementById('idea-log-panel').hidden = false;
+    document.getElementById('idea-log-toggle-arrow').textContent = '▴';
+    switchIdeaLogTab('summary');
+  }
+  document.getElementById('idea-ai-response').value = '';
+  document.getElementById('idea-ai-panel').hidden = true;
+  showToast(`적용됨 — 태그 +${addedTags}개${summaryUpdated ? ', 요약 갱신' : ''}`);
+}
+
+function addIdeaLogEntry() {
+  const ta = document.getElementById('idea-log-new');
+  const text = ta.value.trim();
+  if (!text) { showToast('내용을 입력하세요'); return; }
+  if (!currentEditingIdea) {
+    // 신규 아이디어인데 로그 추가하려면 먼저 임시 객체 만들어줌
+    currentEditingIdea = { id: uid(), log: [] };
+  }
+  if (!Array.isArray(currentEditingIdea.log)) currentEditingIdea.log = [];
+  currentEditingIdea.log.push({ at: Date.now(), text });
+  ta.value = '';
+  renderIdeaLogEntries();
+  showToast('로그 추가됨 — 아직 저장 안 됨, "저장" 클릭 필요');
+}
+
+function saveIdea() {
+  const title = document.getElementById('idea-title').value.trim();
+  const content = document.getElementById('idea-content').value;
+  const summary = document.getElementById('idea-summary').value;
+  const status = document.querySelector('input[name="idea-status"]:checked').value;
+  if (!title) { showToast('제목을 입력하세요'); return; }
+  const ideas = getIdeas();
+  const now = Date.now();
+  const linkedTags = (currentEditingIdea && currentEditingIdea.linkedTags) || [];
+  if (currentEditingIdea && currentEditingIdea.id && ideas.some(i => i.id === currentEditingIdea.id)) {
+    const idx = ideas.findIndex(i => i.id === currentEditingIdea.id);
+    ideas[idx] = {
+      ...ideas[idx],
+      title, content, summary, status,
+      log: currentEditingIdea.log || ideas[idx].log || [],
+      linkedTags,
+      updatedAt: now,
+    };
+  } else {
+    const newIdea = {
+      id: (currentEditingIdea && currentEditingIdea.id) || uid(),
+      title, content, summary, status,
+      log: (currentEditingIdea && currentEditingIdea.log) || [],
+      linkedTags,
+      createdAt: now, updatedAt: now,
+    };
+    ideas.push(newIdea);
+  }
+  saveIdeas(ideas);
+  closeIdeaDetailModal();
+  renderIdeasList();
+  // 카드 💡 배지 즉시 반영
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderLongTerm === 'function') renderLongTerm();
+  if (document.getElementById('weekly-modal').classList.contains('active') && typeof renderWeekly === 'function') renderWeekly();
+  showToast('아이디어 저장됨');
+}
+function deleteIdea() {
+  if (!currentEditingIdea || !currentEditingIdea.id) return;
+  if (!confirm(`"${currentEditingIdea.title || '이 아이디어'}"를 삭제할까요?`)) return;
+  saveIdeas(getIdeas().filter(i => i.id !== currentEditingIdea.id));
+  closeIdeaDetailModal();
+  renderIdeasList();
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderLongTerm === 'function') renderLongTerm();
+  if (document.getElementById('weekly-modal').classList.contains('active') && typeof renderWeekly === 'function') renderWeekly();
+  showToast('아이디어 삭제됨');
+}
+
 // ============== 출장 (Trip) — data.trip ==============
 // data.trip 형태:
 //   null/없음     → 출장 없음
@@ -5249,7 +5932,7 @@ function renderEvents(type) {
 
     div.innerHTML = `
       <button class="del-x">×</button>
-      <span class="time">${ev.start}~${ev.end}</span><span class="title">${escapeHtml(ev.title || '(제목 없음)')}</span>
+      <span class="time">${ev.start}~${ev.end}</span><span class="title">${(typeof findRelatedIdeas==='function' && findRelatedIdeas({title:ev.title}).length>0) ? '<span class="has-idea-prefix" title="관련 아이디어 있음">💡</span>' : ''}${escapeHtml(ev.title || '(제목 없음)')}</span>
     `;
     div.querySelector('.del-x').addEventListener('click', (e) => {
       e.stopPropagation();
@@ -5386,6 +6069,12 @@ function openEventModal(type, ev, defaultStart, defaultEnd, presetTitle) {
   } else {
     wrapper.style.display = 'none';
     rcCheckbox.checked = false;
+  }
+
+  // 💡 관련 아이디어 (자동 매칭 — 이벤트 제목 기준)
+  if (typeof renderRelatedIdeasInTaskModal === 'function') {
+    // ev가 없을 땐 입력 중인 제목으로 매칭하기 어려우므로 placeholder 표시
+    renderRelatedIdeasInTaskModal('event-related-ideas', ev || (presetTitle ? { title: presetTitle } : null));
   }
 
   setTimeout(() => document.getElementById('event-title').focus(), 50);
@@ -6400,6 +7089,45 @@ function init() {
     renderWeekly();
   });
 
+  // 아이디어 모달 바인딩
+  document.getElementById('ideas-btn').addEventListener('click', openIdeasModal);
+  document.getElementById('ideas-close-btn').addEventListener('click', closeIdeasModal);
+  document.getElementById('ideas-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'ideas-modal') closeIdeasModal();
+  });
+  document.querySelectorAll('#ideas-tabs .settings-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentIdeaTab = btn.dataset.itab;
+      document.querySelectorAll('#ideas-tabs .settings-tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.itab === currentIdeaTab));
+      renderIdeasList();
+    });
+  });
+  document.getElementById('ideas-add-btn').addEventListener('click', () => openIdeaDetailModal(null));
+  // 상세 모달
+  document.getElementById('idea-cancel-btn').addEventListener('click', closeIdeaDetailModal);
+  document.getElementById('idea-save-btn').addEventListener('click', saveIdea);
+  document.getElementById('idea-delete-btn').addEventListener('click', deleteIdea);
+  document.getElementById('idea-detail-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'idea-detail-modal') closeIdeaDetailModal();
+  });
+  document.getElementById('idea-log-toggle').addEventListener('click', toggleIdeaLogPanel);
+  document.querySelectorAll('.idea-log-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchIdeaLogTab(btn.dataset.ltab));
+  });
+  document.getElementById('idea-log-add-btn').addEventListener('click', addIdeaLogEntry);
+  document.getElementById('idea-tag-input').addEventListener('keydown', ideaTagInputKeydown);
+  document.getElementById('idea-tag-input').addEventListener('blur', (e) => {
+    if (e.target.value.trim()) ideaTagInputKeydown({ key: 'Enter', preventDefault(){}, target: e.target });
+  });
+  // AI 자동 분석
+  document.getElementById('idea-ai-btn').addEventListener('click', copyIdeaAIPrompt);
+  document.getElementById('idea-ai-apply-btn').addEventListener('click', applyIdeaAIResponse);
+  document.getElementById('idea-ai-cancel-btn').addEventListener('click', () => {
+    document.getElementById('idea-ai-response').value = '';
+    document.getElementById('idea-ai-panel').hidden = true;
+  });
+
   // 출장 모달 바인딩
   document.getElementById('trip-btn').addEventListener('click', openTripModal);
   document.getElementById('trip-cancel-btn').addEventListener('click', closeTripModal);
@@ -6598,11 +7326,12 @@ function init() {
     if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
   });
 
-  // ESC 시 되풀이/Outlook/출장 모달도 같이 닫기
+  // ESC 시 되풀이/Outlook/출장/아이디어 모달도 같이 닫기
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeRecurringModal(); closeRecurringEditModal(); closeChoiceModal();
       closeOutlookModal(); closeTripModal();
+      closeIdeasModal(); closeIdeaDetailModal();
     }
   });
 
