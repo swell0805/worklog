@@ -5823,6 +5823,7 @@ function buildTimelineGrid(containerId, type) {
         }
 
         // 일과계획 → 실제실행: 복사 (자석 스냅 + 초록 색상)
+        // 동시에 원본 일과계획 이벤트 → "완료(연한회색)" 처리 + 매칭 Todo도 done 체크
         if (evData.sourceType === 'planned' && type === 'actual') {
           const startMin = computeMagneticStartMin(rawDropMin, data.actual || [], null, 60);
           const sMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
@@ -5830,7 +5831,9 @@ function buildTimelineGrid(containerId, type) {
           const endMin = Math.min(sMin + duration, 23 * 60 + 50);
           const matchedColor = COLORS.find(c => c.special === 'matched');
           const newColor = matchedColor ? matchedColor.bg : evData.color;
+          const doneColor = (COLORS.find(c => c.special === 'done') || {}).bg || '#e8e8e8';
           updateCurrentData(d => {
+            // 1) actual에 복사
             d.actual.push({
               id: uid(),
               title: evData.title,
@@ -5838,8 +5841,26 @@ function buildTimelineGrid(containerId, type) {
               end: minutesToTimeStr(endMin),
               color: newColor,
             });
+            // 2) 원본 planned 이벤트 → 완료 색(연한회색)으로 변경
+            //    예외: 식사·휴식(break)은 의미상 "완료" 개념 아니므로 유지
+            const orig = (d.planned || []).find(e => e.id === evData.id);
+            if (orig) {
+              const origMeta = COLORS.find(c => c.bg === orig.color);
+              if (!origMeta || origMeta.special !== 'break') {
+                if (!orig._prevColor) orig._prevColor = orig.color;
+                orig.color = doneColor;
+              }
+            }
+            // 3) 매칭 Todo 항목 done 체크
+            const todoText = `${evData.start} ${evData.title}`;
+            if (Array.isArray(d.todos)) {
+              const tIdx = d.todos.findIndex(t => t.text === todoText);
+              if (tIdx >= 0) d.todos[tIdx].done = true;
+            }
           });
+          renderEvents('planned');
           renderEvents('actual');
+          renderTodos();
           return;
         }
         // 실제실행 → 일과계획 등 다른 조합은 미지원 (의도적 제한)
