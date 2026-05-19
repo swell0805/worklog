@@ -824,6 +824,21 @@
     color: #8c6d4f; font-size: 11px; font-family: 'Consolas', monospace;
     margin-right: 8px;
   }
+  .idea-log-entry .log-head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  }
+  .idea-log-entry .log-text {
+    color: #3a2e24; font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .log-auto-badge {
+    background: #ede2cf; color: #8c6d4f;
+    padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  }
+  .log-manual-badge {
+    background: #d8e3ec; color: #2c5870;
+    padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: 600;
+  }
   .idea-log-entry .lx {
     background: none; border: none; color: #b8a990;
     cursor: pointer; font-size: 14px; float: right; line-height: 1;
@@ -1676,8 +1691,8 @@
       <label><input type="radio" name="idea-status" value="paused"> 보류</label>
       <label><input type="radio" name="idea-status" value="closed"> 종료</label>
     </div>
-    <label>본문 (현재 발전 상태 — 자유롭게 수정)</label>
-    <textarea id="idea-content" class="idea-content-textarea" placeholder="아이디어를 자유롭게 발전시켜 보세요..."></textarea>
+    <label>본문 (현재 발전 상태 — 자유롭게 수정. 저장 시 이전 본문은 진행 로그에 자동 보관됨)</label>
+    <textarea id="idea-content" class="idea-content-textarea" placeholder="아이디어를 자유롭게 발전시켜 보세요... (이전 본문은 자동으로 진행 로그에 시간 도장과 함께 저장됩니다)"></textarea>
 
     <label>🔗 연관 태그 — 카테고리명/키워드 입력 시, 그 단어를 포함한 업무에서 자동으로 이 아이디어가 보임</label>
     <div class="idea-tags-row">
@@ -3615,17 +3630,23 @@ function saveRecurringTemplate() {
 function deleteRecurringTemplate() {
   if (!currentEditingRecurring || !currentEditingRecurring.item) return;
   const { type, item } = currentEditingRecurring;
-  if (!confirm(`"${item.title}" 되풀이 템플릿을 완전히 삭제합니다.\n\n이미 자동 등록된 모든 날짜의 일정/업무도 함께 삭제됩니다.\n(개별 인스턴스를 사용자가 수동 편집해 detached 표시된 것은 유지)\n\n계속하시겠습니까?`)) return;
+  if (!confirm(`"${item.title}" 되풀이 템플릿을 삭제합니다.\n\n오늘부터 미래의 자동 등록된 인스턴스만 함께 삭제됩니다.\n과거(어제까지)에 자동 등록된 것은 history로 유지됩니다.\n(detached 표시된 것도 유지)\n\n계속하시겠습니까?`)) return;
 
   const recurring = getRecurring();
   recurring[type] = recurring[type].filter(t => t.id !== item.id);
   saveRecurring(recurring);
 
-  // 모든 인스턴스 삭제
+  // 오늘부터 미래 인스턴스만 삭제 — 과거는 보존
   if (type === 'daily') {
-    cleanupRecurringInstancesDaily(item.id, null);
+    cleanupRecurringInstancesDaily(item.id, null, { futureOnly: true });
   } else {
-    const longterm = getLongTermTasks().filter(t => !(t.recurringId === item.id && !t.recurringDetached));
+    const todayKey = formatDateKey(new Date());
+    const longterm = getLongTermTasks().filter(t => {
+      if (t.recurringId !== item.id) return true;
+      if (t.recurringDetached) return true;
+      if (t.targetDate && t.targetDate < todayKey) return true; // 과거 유지
+      return false;
+    });
     saveLongTermTasks(longterm);
   }
 
@@ -3659,13 +3680,20 @@ function closeChoiceModal() {
 }
 
 // 템플릿 삭제 시 모든 인스턴스 정리 (daily)
-function cleanupRecurringInstancesDaily(recurringId, modifyFields) {
+function cleanupRecurringInstancesDaily(recurringId, modifyFields, options) {
   // modifyFields가 있으면 update, 없으면 delete
+  // options.futureOnly = true 면 오늘 이전(과거) 인스턴스는 건드리지 않음 — 이미 끝난 일정은 history로 보존
+  const futureOnly = !!(options && options.futureOnly);
+  const todayKey = formatDateKey(new Date());
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (!key || !key.startsWith('worklog-')) continue;
     // 날짜 키만: worklog-YYYY-MM-DD 형식
     if (!/^worklog-\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+    if (futureOnly) {
+      const dateKey = key.replace(/^worklog-/, '');
+      if (dateKey < todayKey) continue; // 과거 날짜 skip
+    }
     try {
       const data = JSON.parse(localStorage.getItem(key));
       if (!Array.isArray(data.planned)) continue;
@@ -4301,16 +4329,19 @@ function saveLongTerm() {
       tasks[idx] = { ...editing, title, targetDate, ...extra, recurringDetached: true };
       saveLongTermTasks(tasks);
     } else if (wasRecurring && recurringChecked && scope === 'all') {
-      // 모두 → 템플릿 갱신 + 다른 인스턴스 전파 + 패턴 변경 반영
+      // 모두 → 템플릿 갱신 + 미래(오늘 이후) 인스턴스만 전파 + 패턴 변경 반영
+      // 과거(어제 이전) 인스턴스는 history로 보존
+      const todayKey = formatDateKey(new Date());
       const recurring = getRecurring();
       const tplIdx = recurring.weekly.findIndex(t => t.id === editing.recurringId);
       if (tplIdx >= 0) {
         recurring.weekly[tplIdx] = { ...recurring.weekly[tplIdx], title, ...extra, pattern: newPattern };
         saveRecurring(recurring);
       }
-      // 본 인스턴스 + 다른 인스턴스 모두 업데이트 (detached 제외)
       tasks.forEach(t => {
         if (t.recurringId === editing.recurringId && !t.recurringDetached) {
+          // 과거 인스턴스(targetDate < 오늘)는 변경 안 함
+          if (t.targetDate && t.targetDate < todayKey && t.id !== editing.id) return;
           t.title = title;
           t.category = extra.category;
           t.importance = extra.importance;
@@ -4352,11 +4383,17 @@ function deleteLongTerm() {
   pendingRecurringLongtermDeleteScope = null;
 
   if (scope === 'all' && editing.recurringId) {
-    // 템플릿 + 모든 인스턴스 삭제
+    // 템플릿 제거 + 미래(오늘 이후) 인스턴스만 삭제 — 과거는 history로 보존
+    const todayKey = formatDateKey(new Date());
     const recurring = getRecurring();
     recurring.weekly = recurring.weekly.filter(t => t.id !== editing.recurringId);
     saveRecurring(recurring);
-    saveLongTermTasks(getLongTermTasks().filter(t => !(t.recurringId === editing.recurringId && !t.recurringDetached)));
+    saveLongTermTasks(getLongTermTasks().filter(t => {
+      if (t.recurringId !== editing.recurringId) return true;
+      if (t.recurringDetached) return true;
+      if (t.targetDate && t.targetDate < todayKey) return true; // 과거 인스턴스 유지
+      return false; // 오늘+미래만 삭제
+    }));
     const skipped = getRecurringSkipped();
     Object.keys(skipped.weekly || {}).forEach(k => {
       if (k.startsWith(editing.recurringId + ':')) delete skipped.weekly[k];
@@ -5023,18 +5060,23 @@ function renderIdeaLogEntries() {
   const container = document.getElementById('idea-log-entries');
   const entries = (currentEditingIdea && currentEditingIdea.log) || [];
   if (entries.length === 0) {
-    container.innerHTML = '<div class="ideas-empty" style="padding:14px;">로그 항목이 없습니다. 아래에서 추가하세요.</div>';
+    container.innerHTML = '<div class="ideas-empty" style="padding:14px;">로그 항목이 없습니다.<br>본문을 수정하고 저장하면 이전 본문이 자동 기록됩니다.</div>';
     return;
   }
   // 시간순 (최신이 위)
   const sorted = [...entries].sort((a, b) => (b.at || 0) - (a.at || 0));
-  container.innerHTML = sorted.map((e, idx) => `
+  container.innerHTML = sorted.map((e) => {
+    const marker = e.auto ? '<span class="log-auto-badge" title="본문 수정 시 자동 스냅샷">📸 자동</span>' : '<span class="log-manual-badge" title="사용자가 직접 추가">✏️ 수동</span>';
+    return `
     <div class="idea-log-entry" data-log-at="${e.at}">
       <button class="lx" data-at="${e.at}" title="이 로그 항목 삭제">×</button>
-      <span class="lt">${escapeHtml(ideaTimeLabel(e.at))}</span>
-      <span>${escapeHtml(e.text || '').replace(/\n/g, '<br>')}</span>
+      <div class="log-head">
+        <span class="lt">${escapeHtml(ideaTimeLabel(e.at))}</span>
+        ${marker}
+      </div>
+      <div class="log-text">${escapeHtml(e.text || '').replace(/\n/g, '<br>')}</div>
     </div>
-  `).join('');
+  `;}).join('');
   container.querySelectorAll('.lx').forEach(btn => {
     btn.addEventListener('click', (ev) => {
       ev.stopPropagation();
@@ -5230,21 +5272,84 @@ function addIdeaLogEntry() {
   showToast('로그 추가됨 — 아직 저장 안 됨, "저장" 클릭 필요');
 }
 
+// 본문 변경 시 이전 본문을 자동 로그에 추가 (같은 날 자동 항목은 덮어쓰기)
+function autoSnapshotIfChanged(prevIdea, oldContent, log) {
+  if (!oldContent || !oldContent.trim()) return log; // 빈 본문은 스냅샷 안 함
+  log = Array.isArray(log) ? [...log] : [];
+  const now = Date.now();
+  const todayKey = new Date(now).toDateString();
+  // 직전 자동 entry가 같은 날이면 덮어쓰기
+  const lastIdx = log.length - 1;
+  if (lastIdx >= 0 && log[lastIdx].auto && new Date(log[lastIdx].at).toDateString() === todayKey) {
+    log[lastIdx] = { at: now, text: oldContent, auto: true };
+  } else {
+    log.push({ at: now, text: oldContent, auto: true });
+  }
+  return log;
+}
+
+// 로그 2개 이상이면 자동 요약 생성 (구조화된 timeline)
+const AUTO_SUMMARY_MARKER = '📌 진행 상황 (자동 정리';
+function generateAutoSummary(idea) {
+  const log = (idea.log || []).filter(e => e.at && (e.text || '').trim());
+  if (log.length < 2) return null;
+  const sorted = [...log].sort((a, b) => a.at - b.at);
+  const lines = [`${AUTO_SUMMARY_MARKER}, 총 ${sorted.length}개 기록)`, ''];
+  sorted.forEach((e, idx) => {
+    const at = ideaTimeLabel(e.at);
+    const preview = (e.text || '').trim().split('\n').filter(Boolean).slice(0, 3).join(' / ');
+    const trimmed = preview.length > 160 ? preview.slice(0, 160) + '…' : preview;
+    const marker = e.auto ? '📸' : '✏️';
+    lines.push(`${marker} [${at}]`);
+    lines.push(`   ${trimmed}`);
+    lines.push('');
+  });
+  // 현재 본문 (최신)
+  if (idea.content && idea.content.trim()) {
+    const cur = idea.content.trim().split('\n').filter(Boolean).slice(0, 3).join(' / ');
+    const curTrim = cur.length > 160 ? cur.slice(0, 160) + '…' : cur;
+    lines.push('━━━ 현재 본문 (최신) ━━━');
+    lines.push(curTrim);
+  }
+  return lines.join('\n');
+}
+
 function saveIdea() {
   const title = document.getElementById('idea-title').value.trim();
   const content = document.getElementById('idea-content').value;
-  const summary = document.getElementById('idea-summary').value;
+  let summary = document.getElementById('idea-summary').value;
   const status = document.querySelector('input[name="idea-status"]:checked').value;
   if (!title) { showToast('제목을 입력하세요'); return; }
   const ideas = getIdeas();
   const now = Date.now();
   const linkedTags = (currentEditingIdea && currentEditingIdea.linkedTags) || [];
-  if (currentEditingIdea && currentEditingIdea.id && ideas.some(i => i.id === currentEditingIdea.id)) {
+
+  const isExisting = currentEditingIdea && currentEditingIdea.id && ideas.some(i => i.id === currentEditingIdea.id);
+  let log = (currentEditingIdea && currentEditingIdea.log) ||
+            (isExisting ? ideas[ideas.findIndex(i => i.id === currentEditingIdea.id)].log : []) || [];
+
+  // 1) 자동 스냅샷 — 본문 변경되면 이전 본문을 로그에 push (같은 날 자동 항목은 덮어쓰기)
+  if (isExisting) {
+    const prevContent = ideas[ideas.findIndex(i => i.id === currentEditingIdea.id)].content || '';
+    if (content !== prevContent) {
+      log = autoSnapshotIfChanged(null, prevContent, log);
+    }
+  }
+  // 2) 자동 요약 — 로그가 2개 이상이고 (요약이 비어있거나 자동 요약 마커로 시작하면) 갱신
+  const autoSummary = generateAutoSummary({ content, log });
+  if (autoSummary) {
+    const s = (summary || '').trim();
+    if (!s || s.startsWith(AUTO_SUMMARY_MARKER)) {
+      summary = autoSummary;
+    }
+  }
+
+  if (isExisting) {
     const idx = ideas.findIndex(i => i.id === currentEditingIdea.id);
     ideas[idx] = {
       ...ideas[idx],
       title, content, summary, status,
-      log: currentEditingIdea.log || ideas[idx].log || [],
+      log,
       linkedTags,
       updatedAt: now,
     };
@@ -5252,7 +5357,7 @@ function saveIdea() {
     const newIdea = {
       id: (currentEditingIdea && currentEditingIdea.id) || uid(),
       title, content, summary, status,
-      log: (currentEditingIdea && currentEditingIdea.log) || [],
+      log,
       linkedTags,
       createdAt: now, updatedAt: now,
     };
@@ -6288,7 +6393,7 @@ function saveEvent() {
       recurring.daily[tplIdx] = updatedTpl;
       saveRecurring(recurring);
     }
-    cleanupRecurringInstancesDaily(ev.recurringId, { title, start, end, color: selectedColor });
+    cleanupRecurringInstancesDaily(ev.recurringId, { title, start, end, color: selectedColor }, { futureOnly: true });
   }
 
   // 신규 일정 + 되풀이 → 다른 날짜에도 채우기
@@ -6325,7 +6430,7 @@ function deleteEvent() {
     const recurring = getRecurring();
     recurring.daily = recurring.daily.filter(t => t.id !== ev.recurringId);
     saveRecurring(recurring);
-    cleanupRecurringInstancesDaily(ev.recurringId, null);
+    cleanupRecurringInstancesDaily(ev.recurringId, null, { futureOnly: true });
     // skip 정리
     const skipped = getRecurringSkipped();
     Object.keys(skipped.daily || {}).forEach(k => {
