@@ -4613,24 +4613,39 @@ function getDefaultColor(type, clickMin) {
     return matched ? matched.bg : COLORS[0].bg;
   }
 
-  // 일과 계획: 클릭 위치 위의 일정(end ≤ clickMin 중 가장 큰) 색상을 기준으로 다음 중립 색
+  // 일과 계획: 위·아래 인접 일정 색상 모두와 다른 중립 색 자동 선택
   const neutrals = COLORS.filter(c => !c.special);
   if (events.length === 0) return neutrals[0].bg;
 
-  let refEvent = null;
+  let aboveColor = null, belowColor = null;
   if (clickMin != null) {
+    // 위쪽 일정 (end ≤ clickMin 중 가장 마지막)
     const eventsAbove = events.filter(e => timeStrToMinutes(e.end) <= clickMin);
     if (eventsAbove.length > 0) {
-      refEvent = eventsAbove.reduce((prev, cur) =>
-        timeStrToMinutes(cur.end) > timeStrToMinutes(prev.end) ? cur : prev
-      );
+      const above = eventsAbove.reduce((p, c) =>
+        timeStrToMinutes(c.end) > timeStrToMinutes(p.end) ? c : p);
+      aboveColor = above.color;
+    }
+    // 아래쪽 일정 (start ≥ clickMin 중 가장 가까운, 즉 start가 가장 작은)
+    const eventsBelow = events.filter(e => timeStrToMinutes(e.start) >= clickMin);
+    if (eventsBelow.length > 0) {
+      const below = eventsBelow.reduce((p, c) =>
+        timeStrToMinutes(c.start) < timeStrToMinutes(p.start) ? c : p);
+      belowColor = below.color;
     }
   }
-  if (!refEvent) return neutrals[0].bg;
 
-  const lastIdx = neutrals.findIndex(c => c.bg === refEvent.color);
-  if (lastIdx === -1) return neutrals[0].bg;
-  return neutrals[(lastIdx + 1) % neutrals.length].bg;
+  // 위 색의 "다음" 중립부터 시작해 순환하며 위·아래 모두와 다른 첫 색 선택
+  const aboveIdx = aboveColor ? neutrals.findIndex(c => c.bg === aboveColor) : -1;
+  const startIdx = aboveIdx >= 0 ? (aboveIdx + 1) % neutrals.length : 0;
+  for (let i = 0; i < neutrals.length; i++) {
+    const c = neutrals[(startIdx + i) % neutrals.length].bg;
+    if (c === aboveColor) continue;
+    if (c === belowColor) continue;
+    return c;
+  }
+  // (모든 중립 색이 위·아래 둘 중 하나와 일치 — 사실상 발생 안 함)
+  return neutrals[startIdx].bg;
 }
 
 // ============== Custom Select ==============
