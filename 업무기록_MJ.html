@@ -7903,164 +7903,83 @@ async function generatePeriodSummary(period) {
 }
 
 // 선택된 다중 항목으로 통합 프롬프트 생성
+// 정책: 선택한 각 항목 = 별도 파일 (week/month/quarter/half/year 동일)
+//   - 주 3개 선택 → 주간분석/ 폴더에 3개 .md 파일
+//   - 월 2개 선택 → 월간분석/ 폴더에 2개 .md 파일
+//   - 월 + 주 혼합 → 월 파일 + 주 파일 각각 (사용자가 명시적으로 선택한 대로)
 async function generateMultiSummary() {
   try {
     if (summarySelected.size === 0) { showToast('선택된 항목이 없습니다'); return; }
     const keys = [...summarySelected].sort();
-    const first = keys[0];
 
-    // 분기/반기/연간 — 복수 처리
-    if (first.startsWith('quarter:') || first.startsWith('half:') || first.startsWith('year:')) {
-      const period = first.split(':')[0];
-      const items = [];
-      for (const key of keys) {
+    // 모든 선택 항목을 동일한 items 배열로 정규화
+    const items = [];
+    for (const key of keys) {
+      let period, anchor;
+      if (key.startsWith('week:')) {
+        period = 'week';
+        const mondayKey = key.slice(5);
+        anchor = new Date(mondayKey + 'T00:00:00');
+      } else if (key.startsWith('month:')) {
+        period = 'month';
+        const [y, m] = key.slice(6).split('-').map(Number);
+        anchor = new Date(y, m - 1, 15);
+      } else if (key.startsWith('quarter:') || key.startsWith('half:') || key.startsWith('year:')) {
+        period = key.split(':')[0];
         const parts = key.split(':')[1].split('-');
         const y = parseInt(parts[0]);
         const suffix = parts[1] || '';
-        const anchor = buildAnchorForSingle(period, y, suffix);
-        const range = getPeriodRange(period, anchor);
-        const days = collectPeriodData(range);
-        const stats = computePeriodStats(days);
-        if (stats.totalActualMin === 0 && stats.totalPlannedMin === 0) continue;
-        const { folderPath, fileName } = getAnalysisPath(period, range);
-        items.push({ key, period, range, days, stats, folderPath, fileName });
-      }
-      if (items.length === 0) {
-        showToast('선택된 기간에 데이터가 없습니다'); return;
-      }
-      // 단일이면 기존 단일 분석 흐름 그대로
-      if (items.length === 1) {
-        const it = items[0];
-        const prompt = buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
-        await navigator.clipboard.writeText(prompt);
-        closeSummaryModal();
-        showToast(`✅ ${it.range.label} 분석 프롬프트 복사 완료<br>📄 ${it.folderPath.join('/')}/${it.fileName}`);
-        return;
-      }
-      // 복수 — 통합 프롬프트 (각 항목별 buildAnalysisPrompt 결과를 separator로 묶음)
-      const periodKor = period === 'quarter' ? '분기' : period === 'half' ? '반기' : '연간';
-      const basePath = 'D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ';
-      let prompt = `# 다중 ${periodKor} 분석 (${items.length}개 파일로 저장)\n\n`;
-      prompt += `## 작업 요청\n선택된 ${items.length}개 ${periodKor} 데이터를 분석하여 각 ${periodKor}별로 **별도 마크다운 파일**을 저장해주세요.\n\n`;
-      prompt += `## 저장할 파일 목록\n`;
-      items.forEach(it => {
-        const full = `${basePath}\\${it.folderPath.join('\\')}\\${it.fileName}`;
-        prompt += `- \`${full}\`\n`;
-      });
-      prompt += `\n각 파일은 아래 항목 섹션의 "📁 저장 요청" 경로에 저장하면 됩니다.\n\n`;
-      items.forEach((it, i) => {
-        prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        prompt += `# 항목 ${i+1}/${items.length}: ${it.range.label}\n\n`;
-        prompt += buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
-      });
-      prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-      prompt += `# 📝 처리 절차 (전체)\n`;
-      prompt += `1. 각 폴더(\`분기분석/\`, \`반기분석/\`, \`연간분석/\` 중 해당)가 없으면 먼저 생성\n`;
-      prompt += `2. 위 ${items.length}개 항목을 각각 분석하여 위 "저장할 파일 목록"의 경로에 저장\n`;
-      prompt += `3. 같은 파일이 있으면 덮어쓰기\n`;
-      prompt += `4. 모든 저장 완료 후 사용자에게 각 보고서 핵심 본문도 답변으로 출력\n`;
+        anchor = buildAnchorForSingle(period, y, suffix);
+      } else continue;
+      const range = getPeriodRange(period, anchor);
+      const days = collectPeriodData(range);
+      const stats = computePeriodStats(days);
+      if (stats.totalActualMin === 0 && stats.totalPlannedMin === 0) continue;
+      const { folderPath, fileName } = getAnalysisPath(period, range);
+      items.push({ key, period, range, days, stats, folderPath, fileName });
+    }
+    if (items.length === 0) {
+      showToast('선택된 기간에 데이터가 없습니다'); return;
+    }
+
+    // 단일이면 기존 단일 흐름 그대로
+    if (items.length === 1) {
+      const it = items[0];
+      const prompt = buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
       await navigator.clipboard.writeText(prompt);
       closeSummaryModal();
-      const labels = items.map(it => it.range.label).join(', ');
-      showToast(`✅ ${items.length}개 ${periodKor} 분석 프롬프트 복사 완료 (${labels})`);
+      showToast(`✅ ${it.range.label} 분석 프롬프트 복사 완료<br>📄 ${it.folderPath.join('/')}/${it.fileName}`);
       return;
     }
 
-    // 다중 모드 (week 또는 month) — 월별 그룹핑하여 통합 프롬프트
-    const monthGroups = {}; // 'YYYY-MM' → { year, month, weeks: [{mondayKey, range, days, stats}], monthData?: ... }
-    for (const key of keys) {
-      if (key.startsWith('month:')) {
-        const [y, m] = key.slice(6).split('-').map(Number);
-        const ym = `${y}-${String(m).padStart(2,'0')}`;
-        if (!monthGroups[ym]) monthGroups[ym] = { year: y, month: m, weeks: [], includeMonthFull: false };
-        monthGroups[ym].includeMonthFull = true;
-      } else if (key.startsWith('week:')) {
-        const mondayKey = key.slice(5);
-        const monday = new Date(mondayKey + 'T00:00:00');
-        const info = getWeekLabelInfo(monday);
-        const ym = `${info.year}-${String(info.month).padStart(2,'0')}`;
-        if (!monthGroups[ym]) monthGroups[ym] = { year: info.year, month: info.month, weeks: [], includeMonthFull: false };
-        monthGroups[ym].weeks.push({ monday, mondayKey, weekNum: info.weekNum });
-      }
-    }
-    const sortedYms = Object.keys(monthGroups).sort();
-    if (sortedYms.length === 0) { showToast('선택된 항목이 없습니다'); return; }
-
+    // 다중 — 통합 prompt (각 항목별 buildAnalysisPrompt 결과를 separator로 묶음, 각자 별도 파일)
     const basePath = 'D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ';
-    const folderFullPath = basePath + '\\월간분석';
+    let prompt = `# 다중 기간 분석 (${items.length}개 파일로 저장)\n\n`;
+    prompt += `## 작업 요청\n선택된 ${items.length}개 기간 데이터를 분석하여 **각 항목별로 별도 마크다운 파일**을 저장해주세요.\n\n`;
+    prompt += `## 저장할 파일 목록\n`;
+    items.forEach(it => {
+      const full = `${basePath}\\${it.folderPath.join('\\')}\\${it.fileName}`;
+      prompt += `- \`${full}\` — ${it.range.label}\n`;
+    });
+    prompt += `\n각 항목 섹션의 "📁 저장 요청" 경로에 그대로 저장하면 됩니다.\n\n`;
 
-    let prompt = `# 업무 정리 — 다중 기간 분석 (월별 파일로 저장)\n\n`;
-    prompt += `## 작업 요청\n선택된 ${sortedYms.length}개 월의 데이터를 분석하여 **각 월별로 별도 마크다운 파일을 저장**해주세요.\n`;
-    prompt += `각 파일은 "월 전체 요약 + 주차별 분석 + 주차 간 비교" 구조로 작성.\n\n`;
-    prompt += `## 저장 폴더\n\`${folderFullPath}\\\` (없으면 생성)\n\n`;
-
-    // 각 월별로 데이터 + 파일 정보
-    const fileSpecs = [];
-    for (const ym of sortedYms) {
-      const grp = monthGroups[ym];
+    items.forEach((it, i) => {
       prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-      prompt += `# ${grp.year}년 ${grp.month}월\n`;
-      const fileName = `${grp.year}년 ${grp.month}월 업무분석.md`;
-      const fileFullPath = `${folderFullPath}\\${fileName}`;
-      fileSpecs.push({ ym, year: grp.year, month: grp.month, fileFullPath, weeks: grp.weeks, includeMonthFull: grp.includeMonthFull });
-      prompt += `**📁 저장 파일**: \`${fileFullPath}\`\n\n`;
-
-      // 월 전체 (월간 mode 또는 항상 월 요약 위해)
-      if (grp.includeMonthFull) {
-        const anchor = new Date(grp.year, grp.month - 1, 15);
-        const range = getPeriodRange('month', anchor);
-        const days = collectPeriodData(range);
-        const stats = computePeriodStats(days);
-        prompt += `## [월 전체 데이터] — ${grp.year}.${grp.month} (${formatDateKey(range.start)} ~ ${formatDateKey(range.end)})\n`;
-        prompt += renderMonthDataSection(days, stats);
-      }
-
-      // 선택된 주차들
-      if (grp.weeks.length > 0) {
-        const weeksSorted = grp.weeks.sort((a, b) => a.mondayKey.localeCompare(b.mondayKey));
-        for (const w of weeksSorted) {
-          const range = getPeriodRange('week', w.monday);
-          const days = collectPeriodData(range);
-          const stats = computePeriodStats(days);
-          prompt += `\n## [${w.weekNum}주차 데이터] — ${grp.year}.${grp.month}월 ${w.weekNum}주차 (${formatDateKey(range.start)} ~ ${formatDateKey(range.end)})\n`;
-          prompt += renderMonthDataSection(days, stats);
-        }
-      }
-    }
+      prompt += `# 항목 ${i+1}/${items.length}: ${it.range.label}\n\n`;
+      prompt += buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
+    });
 
     prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    prompt += `# 📝 작성 + 저장 지침\n\n`;
-    prompt += `## 각 월별 파일 구조 (반드시 이대로)\n\n`;
-    prompt += `\`\`\`markdown\n`;
-    prompt += `# {YYYY}년 {M}월 업무분석\n\n`;
-    prompt += `## 📌 월 요약\n`;
-    prompt += `- 이 월의 핵심 활동, 시간 사용 패턴, 주요 성과·이슈를 한 페이지로 정리\n\n`;
-    prompt += `## 📊 프로젝트별 진행 상황\n`;
-    prompt += `- 한 눈에 보기 요약 표 + 프로젝트별 상세 (아래 "프로젝트별 진행 상황 분석" 지침 참조)\n\n`;
-    prompt += `## 1주차 (날짜 범위)\n`;
-    prompt += `- 활동·시간 분포·달성률·이슈\n\n`;
-    prompt += `## 2주차 (날짜 범위)\n`;
-    prompt += `...\n\n`;
-    prompt += `## 📊 주차 간 비교\n`;
-    prompt += `- 시간 사용 트렌드, 카테고리 변화, 패턴 진화, 개선/악화 추세\n\n`;
-    prompt += `## 다음 달 제안\n`;
-    prompt += `\`\`\`\n\n`;
-    // 프로젝트별 진행 상황 분석 지침 — 각 월 파일에 동일 적용
-    prompt += buildProjectTimelineSection('월');
-
-    prompt += `## 처리 절차\n`;
-    prompt += `1. 폴더(\`${folderFullPath}\`)가 없으면 먼저 생성\n`;
-    prompt += `2. 각 월의 분석 보고서를 위 경로에 마크다운 파일로 저장 (총 ${sortedYms.length}개 파일)\n`;
-    prompt += `3. 같은 파일이 이미 있으면 덮어쓰기\n`;
-    prompt += `4. 저장할 파일 목록:\n`;
-    fileSpecs.forEach(s => { prompt += `   - \`${s.fileFullPath}\`\n`; });
-    prompt += `5. 모든 저장 완료 후 사용자에게 각 보고서 핵심 본문도 답변으로 출력\n\n`;
-    prompt += `**주의**: 데이터가 없는 주차는 "데이터 없음"으로 명시하고 건너뛰지 마세요 (선택된 주차 모두 표시).\n`;
+    prompt += `# 📝 처리 절차 (전체)\n`;
+    prompt += `1. 각 폴더(\`주간분석/\`, \`월간분석/\`, \`분기분석/\`, \`반기분석/\`, \`연간분석/\` 중 해당)가 없으면 먼저 생성\n`;
+    prompt += `2. 위 ${items.length}개 항목을 각각 분석하여 "저장할 파일 목록"의 경로에 별도 파일로 저장\n`;
+    prompt += `3. 같은 파일이 있으면 덮어쓰기\n`;
+    prompt += `4. 모든 저장 완료 후 사용자에게 각 보고서 핵심 본문도 답변으로 출력\n`;
 
     await navigator.clipboard.writeText(prompt);
     closeSummaryModal();
-    const fileList = fileSpecs.map(s => `${s.year}.${s.month}월`).join(', ');
-    showToast(`✅ 분석 프롬프트 복사 완료 — ${sortedYms.length}개 월 파일 (${fileList})`);
+    const labels = items.map(it => it.range.label).join(', ');
+    showToast(`✅ ${items.length}개 항목 분석 프롬프트 복사 완료 (${labels})`);
   } catch (e) {
     showToast('생성 실패: ' + e.message);
     console.error(e);
@@ -8075,58 +7994,6 @@ function buildAnchorForSingle(period, year, suffix) {
   return new Date(year, 0, 1);
 }
 
-// 한 기간(주 or 월)의 데이터 섹션 (통합 프롬프트의 일부로 사용)
-function renderMonthDataSection(days, stats) {
-  const wd = stats.workingDays || 1;
-  const stateLabels = {
-    matched: '🟢 계획대로', missed: '🔴 미수행', overrun: '🟠 지연',
-    unplanned: '🔵 계획 외', break: '⚪ 식사/휴식', other: '(미분류)',
-  };
-  let s = '';
-  s += `- 활동일: ${wd}일 / 총 계획 ${fmtHM(stats.totalPlannedMin)} / 총 실행 ${fmtHM(stats.totalActualMin)}\n`;
-  s += `- 상태별: `;
-  s += Object.entries(stats.colorMins).filter(([,v]) => v > 0)
-    .map(([k, v]) => `${stateLabels[k]} ${fmtHM(v)}`).join(' / ');
-  s += `\n`;
-  const cats = Object.entries(stats.categoryMins).sort((a,b) => b[1]-a[1]);
-  if (cats.length > 0) {
-    s += `- 카테고리: `;
-    s += cats.map(([c, m]) => `${c} ${fmtHM(m)}`).join(' / ');
-    s += `\n`;
-  }
-  // Top tasks
-  if (stats.topTasks.length > 0) {
-    s += `- Top 업무 (시간): `;
-    s += stats.topTasks.slice(0, 5).map(t => `${t.title}(${fmtHM(t.min)})`).join(', ');
-    s += `\n`;
-  }
-  // 일별 priority + achievements 간략
-  let priLines = [];
-  let achLines = [];
-  days.forEach(({ date, data }) => {
-    const ps = (data.priority || []).filter(x => x && x.text);
-    if (ps.length > 0) priLines.push(`  ${date}: ${ps.map(x => `${x.text}${x.done ? '✓' : ''}`).join(' / ')}`);
-    const ach = (data.achievements || []).filter(a => a);
-    if (ach.length > 0) achLines.push(`  ${date}: ${ach.join(' / ')}`);
-  });
-  if (priLines.length) s += `- 일별 Top Priority:\n${priLines.join('\n')}\n`;
-  if (achLines.length) s += `- 일별 성과:\n${achLines.join('\n')}\n`;
-  // 원본 일과 (간략)
-  s += `- 일과 원본:\n`;
-  days.forEach(({ date, weekday, data }) => {
-    const actual = (data.actual || []);
-    if (actual.length === 0) return;
-    s += `  ${date}(${weekday}): `;
-    s += actual.sort((a,b) => timeStrToMinutes(a.start)-timeStrToMinutes(b.start))
-      .map(e => {
-        const cm = COLORS.find(c => c.bg === e.color);
-        const tag = cm?.special ? `[${cm.special}]` : '';
-        return `${e.start}~${e.end} ${e.title}${tag}`;
-      }).join(' | ');
-    s += `\n`;
-  });
-  return s;
-}
 
 // ============== Toast ==============
 let toastTimer = null;
