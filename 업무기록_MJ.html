@@ -741,6 +741,115 @@
   .weekday-btn.selected {
     background: #8c6d4f; color: #faf5eb; border-color: #8c6d4f;
   }
+  /* ============ 업무 정리 (Summary) ============ */
+  .summary-nav {
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; margin: 12px 0 14px;
+  }
+  .summary-nav button {
+    width: 32px; height: 32px; border: 1px solid #d4c5ae;
+    background: #fdfaf3; border-radius: 50%; cursor: pointer;
+    color: #5c4a38; font-size: 14px;
+  }
+  .summary-nav button:hover { background: #ede2cf; }
+  .summary-picker {
+    max-height: 380px; overflow-y: auto;
+    padding: 12px; border: 1px solid #e0d5c3; border-radius: 4px;
+    background: #fdfaf3;
+  }
+  /* 월간 mode — 4x3 그리드 */
+  .month-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+  }
+  .month-cell {
+    padding: 14px 10px; text-align: center;
+    background: #fff; border: 1px solid #d4c5ae; border-radius: 4px;
+    cursor: pointer; font-size: 14px; color: #3a2e24;
+    user-select: none; transition: all 0.1s;
+  }
+  .month-cell:hover { background: #ede2cf; }
+  .month-cell.selected {
+    background: #8c6d4f; color: #faf5eb; border-color: #5c4a38; font-weight: 600;
+  }
+  .month-cell.disabled { color: #b8a990; cursor: default; background: #f5efe4; }
+  .month-cell.disabled:hover { background: #f5efe4; }
+  /* 주간 mode — 월별 그룹 + 체크박스 리스트 */
+  .week-group {
+    margin-bottom: 12px; padding: 8px 10px;
+    background: #fff; border: 1px solid #e0d5c3; border-radius: 4px;
+  }
+  .week-group-title {
+    font-weight: 600; font-size: 13px; color: #3a2e24;
+    margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .week-group-title .wg-toggle {
+    margin-left: auto; background: none; border: 1px solid #8c6d4f;
+    color: #5c4a38; padding: 2px 8px; border-radius: 3px;
+    cursor: pointer; font-size: 11px;
+  }
+  .week-group-title .wg-toggle:hover { background: #ede2cf; }
+  .week-options {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;
+  }
+  .week-option {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: 3px;
+    cursor: pointer; font-size: 12px; color: #3a2e24;
+  }
+  .week-option:hover { background: #ede2cf; }
+  .week-option input[type="checkbox"] { accent-color: #8c6d4f; cursor: pointer; }
+  /* 오늘 주차 강조 (주간 모드) */
+  .week-option.today-week {
+    background: #fff8d6; border: 1px solid #d4b94a; padding-right: 6px;
+  }
+  .week-option.today-week::after {
+    content: '이번 주'; margin-left: auto; padding: 0 6px;
+    background: #d4b94a; color: #fff; border-radius: 8px;
+    font-size: 10px; font-weight: 600;
+  }
+  /* 분기/반기/연간 — 복수 선택 (체크박스 스타일 그리드) */
+  .single-period-options {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    padding: 12px;
+  }
+  .single-period-options label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; background: #fff; border: 1px solid #d4c5ae;
+    border-radius: 4px; cursor: pointer; font-size: 13px;
+    user-select: none; transition: all 0.1s;
+  }
+  .single-period-options label:hover { background: #ede2cf; }
+  .single-period-options label.selected {
+    background: #8c6d4f; color: #faf5eb; border-color: #5c4a38; font-weight: 600;
+  }
+  .single-period-options label.selected::before {
+    content: '✓'; font-weight: 700;
+  }
+  .single-period-options label:not(.selected)::before {
+    content: '□'; color: #b8a990;
+  }
+  .single-period-options label.is-current-year {
+    box-shadow: 0 0 0 2px #d4b94a inset;
+  }
+  /* 선택된 항목 표시 */
+  .summary-selected {
+    margin-top: 12px; padding: 10px 12px;
+    background: #f5ead2; border: 1px solid #d4c5ae; border-radius: 4px;
+  }
+  .summary-selected .ss-label {
+    font-size: 12px; color: #5c4a38; font-weight: 600; margin-bottom: 6px;
+  }
+  .summary-selected .ss-list {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    max-height: 80px; overflow-y: auto;
+  }
+  .ss-chip {
+    background: #fdfaf3; color: #5c4a38;
+    padding: 3px 10px; border-radius: 12px;
+    font-size: 11px; border: 1px solid #d4c5ae;
+  }
+  .ss-empty { color: #a89a84; font-size: 12px; font-style: italic; }
+
   /* ============ 아이디어 (Ideas) ============ */
   .action-btn.idea-btn {
     background: rgba(255, 220, 100, 0.18);
@@ -927,6 +1036,61 @@
   .related-ideas-empty {
     font-size: 12px; color: #8c6d4f; font-style: italic;
   }
+  /* 명시적 link chip — 진한 테두리 + ◆ marker */
+  .related-idea-chip.explicit { border-width: 1.5px; border-color: #b89422; background: #fff1a8; }
+  /* chip 내부 ✕ 버튼 (chip 우측) */
+  .related-idea-chip .chip-x {
+    margin-left: 6px; padding: 0 4px; border-radius: 8px;
+    background: rgba(140,109,79,0.15); color: #5c4a38;
+    font-size: 11px; line-height: 1; cursor: pointer; border: none;
+  }
+  .related-idea-chip .chip-x:hover { background: rgba(140,109,79,0.35); color: #fff; }
+  /* ➕ 아이디어 추가 버튼 */
+  .related-ideas-section .ris-add-btn {
+    margin-top: 8px; padding: 5px 12px; font-size: 12px;
+    background: #fff8d6; border: 1px dashed #b89422; color: #5c4a38;
+    border-radius: 12px; cursor: pointer;
+  }
+  .related-ideas-section .ris-add-btn:hover { background: #fff1a8; }
+  .related-ideas-section .ris-add-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  /* 아이디어 link picker 모달 */
+  #idea-link-picker-modal .modal { width: 460px; max-height: 80vh; display: flex; flex-direction: column; }
+  #idea-link-picker-search {
+    width: 100%; padding: 8px 10px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fdfaf3; font-size: 14px; color: #3a2e24; outline: none; margin-bottom: 10px;
+  }
+  #idea-link-picker-list {
+    flex: 1; overflow-y: auto; border: 1px solid #e0d4bd; border-radius: 4px;
+    background: #fdfaf3; padding: 4px; max-height: 280px;
+  }
+  .idea-pick-row {
+    padding: 8px 10px; border-radius: 3px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .idea-pick-row:hover { background: #f5ead2; }
+  .idea-pick-row.disabled { opacity: 0.45; cursor: not-allowed; }
+  .idea-pick-row .ip-status {
+    font-size: 10px; padding: 1px 6px; border-radius: 8px;
+    background: #e0d4bd; color: #5c4a38;
+  }
+  .idea-pick-row .ip-status.paused { background: #d4c5ae; }
+  .idea-pick-row .ip-title { flex: 1; font-size: 13px; color: #3a2e24; }
+  .idea-pick-row .ip-linked { font-size: 11px; color: #8c6d4f; font-style: italic; }
+  .idea-pick-empty { padding: 16px; text-align: center; color: #8c6d4f; font-style: italic; font-size: 13px; }
+  #idea-link-picker-new {
+    margin-top: 10px; padding: 10px;
+    background: #f5ead2; border: 1px dashed #b89422; border-radius: 4px;
+  }
+  #idea-link-picker-new label { display: block; font-size: 12px; color: #5c4a38; margin-bottom: 4px; }
+  #idea-link-picker-new-title {
+    width: 100%; padding: 7px 10px; border: 1px solid #d4c5ae; border-radius: 4px;
+    background: #fdfaf3; font-size: 13px; color: #3a2e24; outline: none;
+  }
+  #idea-link-picker-new-btn {
+    margin-top: 6px; padding: 6px 12px; font-size: 12px;
+    background: #5c4a38; color: #fff; border: none; border-radius: 4px; cursor: pointer;
+  }
+  #idea-link-picker-new-btn:hover { background: #3a2e24; }
 
   /* AI 분석 버튼/패널 */
   .idea-ai-btn {
@@ -1441,13 +1605,38 @@
   </div>
 </div>
 
-<!-- Summary Dropdown (period selector) -->
-<div class="action-dropdown" id="summary-dropdown" hidden>
-  <button data-period="week">📅 주간업무정리</button>
-  <button data-period="month">📅 월간업무정리</button>
-  <button data-period="quarter">📅 분기업무정리</button>
-  <button data-period="half">📅 반기업무정리</button>
-  <button data-period="year">📅 연간업무정리</button>
+<!-- 업무 정리 모달 (다중 주/월 선택 + 단일 분기/반기/연 선택) -->
+<div class="modal-backdrop" id="summary-modal">
+  <div class="modal" style="width: 720px; max-width: 92vw;">
+    <h2>📝 업무 정리 — 분석 기간 선택</h2>
+
+    <label>기간 종류</label>
+    <div class="pattern-type-row" style="margin-bottom: 12px;">
+      <label class="pattern-radio"><input type="radio" name="summary-period-type" value="week"> 주간 (복수 선택)</label>
+      <label class="pattern-radio"><input type="radio" name="summary-period-type" value="month" checked> 월간 (복수 선택)</label>
+      <label class="pattern-radio"><input type="radio" name="summary-period-type" value="quarter"> 분기 (복수 선택)</label>
+      <label class="pattern-radio"><input type="radio" name="summary-period-type" value="half"> 반기 (복수 선택)</label>
+      <label class="pattern-radio"><input type="radio" name="summary-period-type" value="year"> 연간 (복수 선택)</label>
+    </div>
+
+    <div class="summary-nav" id="sm-year-nav">
+      <button id="sm-year-prev">◀</button>
+      <span id="sm-year-label" style="font-weight: 600; font-size: 16px;">2026년</span>
+      <button id="sm-year-next">▶</button>
+    </div>
+
+    <div id="summary-picker" class="summary-picker"></div>
+
+    <div class="summary-selected">
+      <div class="ss-label">선택된 항목 (<span id="sm-selected-count">0</span>개)</div>
+      <div class="ss-list" id="sm-selected-list"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="sm-cancel-btn">취소</button>
+      <button class="primary" id="sm-generate-btn">📋 분석 프롬프트 클립보드 복사</button>
+    </div>
+  </div>
 </div>
 
 <!-- Import Weekly Tasks Modal -->
@@ -1982,6 +2171,24 @@
   </div>
 </div>
 
+<!-- 아이디어 link picker (업무 편집 모달에서 ➕ 아이디어 추가 시 사용) -->
+<div class="modal-backdrop" id="idea-link-picker-modal">
+  <div class="modal">
+    <h2>💡 아이디어 연결</h2>
+    <p style="color:#5c4a38; font-size:12px; margin:0 0 10px;">이 업무에 연결할 기존 아이디어를 선택하거나, 새 아이디어를 만들어 즉시 연결합니다.</p>
+    <input type="text" id="idea-link-picker-search" placeholder="🔍 제목·태그로 검색...">
+    <div id="idea-link-picker-list"></div>
+    <div id="idea-link-picker-new">
+      <label>➕ 새 아이디어로 만들고 즉시 연결</label>
+      <input type="text" id="idea-link-picker-new-title" placeholder="아이디어 제목을 입력하세요...">
+      <button id="idea-link-picker-new-btn">만들고 연결</button>
+    </div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="idea-link-picker-cancel">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- 본/모두 선택 모달 (되풀이 인스턴스 수정/삭제 시) -->
 <div class="modal-backdrop" id="recurring-choice-modal">
   <div class="modal" style="width: 420px;">
@@ -1999,8 +2206,10 @@
 
 <script>
 // ============== 상수 & 상태 ==============
-const START_HOUR = 8;
-const END_HOUR = 22;
+// 타임라인은 0시~24시 전체. 초기 viewport는 INITIAL_SCROLL_HOUR(아침 8시)에서 시작 — 위/아래로 스크롤하여 새벽·심야 시간대 접근.
+const START_HOUR = 0;
+const END_HOUR = 24;
+const INITIAL_SCROLL_HOUR = 8;
 const PX_PER_HOUR = 60;
 const PX_PER_MIN = PX_PER_HOUR / 60;
 const SNAP_MIN = 10;
@@ -3668,9 +3877,12 @@ function deleteRecurringTemplate() {
 
 // ============== Choice 모달 (본/모두) ==============
 function openChoiceModal(opts) {
-  // opts: { title, message, onThis, onAll }
+  // opts: { title, message, onThis, onAll, thisLabel, allLabel }
   document.getElementById('recurring-choice-title').textContent = opts.title || '되풀이 일정';
   document.getElementById('recurring-choice-message').textContent = opts.message || '';
+  // 버튼 라벨 — 호출처가 커스텀 라벨 안 주면 기본값(본/모두)
+  document.getElementById('recurring-choice-this').textContent = opts.thisLabel || '본 일정만';
+  document.getElementById('recurring-choice-all').textContent = opts.allLabel || '모든 되풀이 일정';
   pendingChoiceCallbacks = opts;
   document.getElementById('recurring-choice-modal').classList.add('active');
 }
@@ -4432,7 +4644,7 @@ function restoreColumnWidths() {
     });
   } catch (e) {}
 }
-// 모달 이동/크기조절 기능 (event-modal, weekly-modal)
+// 모달 이동/크기조절 기능 (event-modal, weekly-modal) — 우측 하단 native 핸들 + 4변(상/하/좌/우) 드래그
 function makeModalDraggableResizable(backdropId, dragHandleSelector, storageKey) {
   const backdrop = document.getElementById(backdropId);
   if (!backdrop) return;
@@ -4445,6 +4657,69 @@ function makeModalDraggableResizable(backdropId, dragHandleSelector, storageKey)
   modal.style.overflow = 'auto';
   modal.style.minWidth = '320px';
   modal.style.minHeight = '220px';
+  // 4변 핸들이 modal 내부에 absolute로 자리잡을 수 있도록 position 보장
+  if (getComputedStyle(modal).position === 'static') modal.style.position = 'relative';
+
+  // 4변(상/하/좌/우) 드래그 리사이즈 핸들 추가 (우측 하단 native 핸들은 그대로 유지)
+  const MIN_W = 320, MIN_H = 220;
+  const edgeDefs = [
+    { dir: 'top',    cursor: 'ns-resize', style: 'top:-4px; left:0; right:0; height:8px;' },
+    { dir: 'bottom', cursor: 'ns-resize', style: 'bottom:-4px; left:0; right:0; height:8px;' },
+    { dir: 'left',   cursor: 'ew-resize', style: 'top:0; bottom:0; left:-4px; width:8px;' },
+    { dir: 'right',  cursor: 'ew-resize', style: 'top:0; bottom:0; right:-4px; width:8px;' },
+  ];
+  edgeDefs.forEach(({ dir, cursor, style }) => {
+    const h = document.createElement('div');
+    h.className = 'modal-edge-resizer modal-edge-' + dir;
+    h.style.cssText = 'position:absolute; z-index:5; background:transparent; cursor:' + cursor + '; ' + style;
+    modal.appendChild(h);
+    h.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      lastUserActivity = Date.now();
+      const r = modal.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+      const startW = r.width, startH = r.height;
+      const startL = r.left, startT = r.top;
+      const maxW = window.innerWidth - 20;
+      const maxH = window.innerHeight - 20;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = cursor;
+
+      function onMove(ev) {
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        let newW = startW, newH = startH;
+        if (dir === 'right')  newW = Math.max(MIN_W, Math.min(maxW, startW + dx));
+        if (dir === 'bottom') newH = Math.max(MIN_H, Math.min(maxH, startH + dy));
+        if (dir === 'left')   newW = Math.max(MIN_W, Math.min(maxW, startW - dx));
+        if (dir === 'top')    newH = Math.max(MIN_H, Math.min(maxH, startH - dy));
+        modal.style.width = newW + 'px';
+        modal.style.height = newH + 'px';
+        modal.style.maxWidth = 'none';
+        modal.style.maxHeight = 'none';
+        // 좌/상 드래그는 위치도 같이 옮겨야 반대편 변이 고정된 것처럼 보임
+        if (dir === 'left' || dir === 'top') {
+          modal.style.position = 'absolute';
+          modal.style.margin = '0';
+          if (dir === 'left') modal.style.left = (startL + (startW - newW)) + 'px';
+          if (dir === 'top')  modal.style.top  = (startT + (startH - newH)) + 'px';
+          // 반대편 변 고정 — 한 축만 absolute로 전환하면 다른 축이 튀므로 둘 다 명시
+          if (modal.style.top === '')  modal.style.top  = startT + 'px';
+          if (modal.style.left === '') modal.style.left = startL + 'px';
+        }
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        document.body.style.userSelect = '';
+        document.body.style.cursor = '';
+        saveState();
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
 
   // 저장된 위치/크기 복원
   function restore() {
@@ -5022,7 +5297,7 @@ function renderIdeasList() {
 }
 
 function openIdeaDetailModal(idea) {
-  currentEditingIdea = idea ? { ...idea, log: [...(idea.log || [])], linkedTags: [...(idea.linkedTags || [])] } : null;
+  currentEditingIdea = idea ? { ...idea, log: [...(idea.log || [])], linkedTags: [...(idea.linkedTags || [])], linkedTaskIds: [...(idea.linkedTaskIds || [])] } : null;
   const isNew = !idea;
   document.getElementById('idea-detail-title-h').textContent = isNew ? '💡 새 아이디어' : '💡 아이디어 편집';
   document.getElementById('idea-title').value = idea?.title || '';
@@ -5144,16 +5419,22 @@ function ideaTagInputKeydown(e) {
   renderIdeaTagChips();
 }
 
-// 업무 ↔ 아이디어 자동 매칭
-// 매칭 기준: idea.linkedTags 중 어느 하나라도 task.title 또는 task.category에 부분 포함
-// (대소문자 무시). 종료(closed) 아이디어는 surface 안 함.
+// 업무 ↔ 아이디어 매칭
+// 매칭 기준 (둘 중 하나라도 만족):
+//   (A) 명시적 link — idea.linkedTaskIds에 task.id 포함 (업무 편집 모달의 ➕ 아이디어 추가로 등록)
+//   (B) 태그 자동 매칭 — idea.linkedTags 중 어느 하나라도 task.title 또는 task.category에 부분 포함 (대소문자 무시)
+// 종료(closed) 아이디어는 surface 안 함.
 function findRelatedIdeas(task) {
   if (!task) return [];
   const title = (task.title || '').toLowerCase();
   const cat = (task.category || '').toLowerCase();
-  if (!title && !cat) return [];
+  const taskId = task.id || null;
   return getIdeas().filter(idea => {
     if (idea.status === 'closed') return false;
+    // (A) 명시적 link
+    if (taskId && Array.isArray(idea.linkedTaskIds) && idea.linkedTaskIds.includes(taskId)) return true;
+    // (B) 태그 매칭
+    if (!title && !cat) return false;
     const tags = idea.linkedTags || [];
     if (tags.length === 0) return false;
     return tags.some(tag => {
@@ -5163,28 +5444,228 @@ function findRelatedIdeas(task) {
   });
 }
 
+// 특정 task에 대한 매칭 사유 — 명시적 link인지 태그 매칭인지 (UI에서 ✕ 동작 분기용)
+function getIdeaMatchReason(idea, task) {
+  if (!idea || !task) return 'none';
+  const taskId = task.id || null;
+  const isExplicit = taskId && Array.isArray(idea.linkedTaskIds) && idea.linkedTaskIds.includes(taskId);
+  const title = (task.title || '').toLowerCase();
+  const cat = (task.category || '').toLowerCase();
+  const tags = idea.linkedTags || [];
+  const isByTag = tags.length > 0 && tags.some(tag => {
+    const t = String(tag).toLowerCase();
+    return (title && title.includes(t)) || (cat && cat.includes(t));
+  });
+  if (isExplicit && isByTag) return 'both';
+  if (isExplicit) return 'explicit';
+  if (isByTag) return 'tag';
+  return 'none';
+}
+
 // 업무 모달 안 "💡 관련 아이디어" 섹션 렌더링
+// task는 longterm-task / planned-event 객체 ({id, title, category?})
+// containerId === 'event-related-ideas' 이면 event-modal, 'longterm-related-ideas' 이면 longterm-modal에서 호출됨
 function renderRelatedIdeasInTaskModal(containerId, task) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const matches = findRelatedIdeas(task);
+  const hasId = !!(task && task.id);
+  const addBtnHtml = `<button type="button" class="ris-add-btn" id="${containerId}-add" ${hasId ? '' : 'disabled title="저장 후 아이디어를 추가할 수 있습니다"'}>➕ 아이디어 추가</button>`;
   if (matches.length === 0) {
-    container.innerHTML = `<div class="ris-label">💡 관련 아이디어</div><div class="related-ideas-empty">매칭되는 아이디어 없음 (아이디어 모달에서 태그 추가하면 자동 매칭)</div>`;
-    return;
+    container.innerHTML = `
+      <div class="ris-label">💡 관련 아이디어</div>
+      <div class="related-ideas-empty">매칭되는 아이디어 없음 (아래 버튼 또는 아이디어 모달에서 태그 추가)</div>
+      ${addBtnHtml}
+    `;
+  } else {
+    const chipsHtml = matches.map(i => {
+      const reason = getIdeaMatchReason(i, task);
+      const isExplicit = reason === 'explicit' || reason === 'both';
+      const marker = isExplicit ? '◆ ' : '▫ ';
+      const tooltip = reason === 'explicit' ? '이 업무에 직접 연결됨'
+                    : reason === 'both' ? '직접 연결 + 태그 매칭'
+                    : '태그 매칭으로 자동 표시';
+      return `<button type="button" class="related-idea-chip${isExplicit ? ' explicit' : ''}" data-idea-id="${escapeHtml(i.id)}" data-match="${reason}" title="${escapeHtml(i.title)} — ${tooltip}">${marker}${escapeHtml(i.title)}<span class="chip-x" data-action="remove" title="이 업무에서 제거">×</span></button>`;
+    }).join('');
+    container.innerHTML = `
+      <div class="ris-label">💡 관련 아이디어 ${matches.length}개 <span style="font-weight:400; color:#8c6d4f;">(◆ 직접 연결 / ▫ 태그 매칭)</span></div>
+      <div class="related-ideas-list">${chipsHtml}</div>
+      ${addBtnHtml}
+    `;
   }
-  container.innerHTML = `
-    <div class="ris-label">💡 관련 아이디어 ${matches.length}개</div>
-    <div class="related-ideas-list">
-      ${matches.map(i => `<button class="related-idea-chip" data-idea-id="${escapeHtml(i.id)}" title="${escapeHtml(i.title)}">${escapeHtml(i.title)}</button>`).join('')}
-    </div>
-  `;
+  // chip 클릭 → 상세 모달 / chip의 ✕ 클릭 → 삭제 choice 모달
   container.querySelectorAll('.related-idea-chip').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
       const id = btn.dataset.ideaId;
+      const matchReason = btn.dataset.match;
+      // ✕ 클릭은 별도 처리 (이벤트 버블링으로 들어옴)
+      if (e.target.dataset.action === 'remove') {
+        e.stopPropagation();
+        promptRemoveIdeaFromTask(id, task, containerId, matchReason);
+        return;
+      }
       const idea = getIdeas().find(x => x.id === id);
       if (idea) openIdeaDetailModal(idea);
     });
   });
+  const addBtn = document.getElementById(`${containerId}-add`);
+  if (addBtn && hasId) {
+    addBtn.addEventListener('click', () => openIdeaLinkPicker(task, containerId));
+  }
+}
+
+// ✕ 클릭 시 — 매칭 사유에 따라 메시지 분기
+function promptRemoveIdeaFromTask(ideaId, task, containerId, matchReason) {
+  const idea = getIdeas().find(x => x.id === ideaId);
+  if (!idea) return;
+  const taskId = task.id;
+  // 명시적 link만 있는 경우 — 연결 해제로 surface 즉시 사라짐
+  if (matchReason === 'explicit') {
+    openChoiceModal({
+      title: '아이디어 제거',
+      message: `"${idea.title}"\n\n이 업무와의 연결을 해제할까요? 아이디어 자체는 다른 업무에서 surface될 수 있습니다.`,
+      thisLabel: '🔗 이 업무와의 연결만 해제',
+      allLabel: '🗑 아이디어 자체 삭제 (모든 업무에서)',
+      onThis: () => { unlinkIdeaFromTask(ideaId, taskId); renderRelatedIdeasInTaskModal(containerId, task); refreshIdeaSurfaces(); },
+      onAll: () => { deleteIdeaById(ideaId); renderRelatedIdeasInTaskModal(containerId, task); refreshIdeaSurfaces(); },
+    });
+  } else if (matchReason === 'both') {
+    // 명시적 link + 태그 매칭 둘 다 — 연결 해제해도 태그 매칭으로 surface 유지됨
+    openChoiceModal({
+      title: '아이디어 제거',
+      message: `"${idea.title}"\n\n⚠️ 직접 연결과 태그 매칭이 모두 있습니다. 연결만 해제해도 태그(${(idea.linkedTags||[]).join(', ')}) 매칭으로 계속 surface될 수 있습니다.`,
+      thisLabel: '🔗 직접 연결만 해제 (태그 매칭은 유지)',
+      allLabel: '🗑 아이디어 자체 삭제',
+      onThis: () => { unlinkIdeaFromTask(ideaId, taskId); renderRelatedIdeasInTaskModal(containerId, task); refreshIdeaSurfaces(); },
+      onAll: () => { deleteIdeaById(ideaId); renderRelatedIdeasInTaskModal(containerId, task); refreshIdeaSurfaces(); },
+    });
+  } else {
+    // 태그 매칭으로만 surface — 연결 해제 불가, "아이디어 수정" 또는 "자체 삭제"만 가능
+    openChoiceModal({
+      title: '아이디어 제거',
+      message: `"${idea.title}"\n\n이 아이디어는 태그(${(idea.linkedTags||[]).join(', ')}) 매칭으로 자동 표시됩니다. 이 업무에서만 떼려면 "아이디어 수정"으로 태그를 바꿔야 합니다.`,
+      thisLabel: '✏️ 아이디어 수정 (태그 변경)',
+      allLabel: '🗑 아이디어 자체 삭제',
+      onThis: () => { closeChoiceModal(); openIdeaDetailModal(idea); },
+      onAll: () => { deleteIdeaById(ideaId); renderRelatedIdeasInTaskModal(containerId, task); refreshIdeaSurfaces(); },
+    });
+  }
+}
+
+// 명시적 link 추가
+function linkIdeaToTask(ideaId, taskId) {
+  if (!taskId) return;
+  const ideas = getIdeas();
+  const idx = ideas.findIndex(i => i.id === ideaId);
+  if (idx < 0) return;
+  if (!Array.isArray(ideas[idx].linkedTaskIds)) ideas[idx].linkedTaskIds = [];
+  if (!ideas[idx].linkedTaskIds.includes(taskId)) {
+    ideas[idx].linkedTaskIds.push(taskId);
+    ideas[idx].updatedAt = Date.now();
+    saveIdeas(ideas);
+  }
+}
+
+// 명시적 link 제거
+function unlinkIdeaFromTask(ideaId, taskId) {
+  const ideas = getIdeas();
+  const idx = ideas.findIndex(i => i.id === ideaId);
+  if (idx < 0) return;
+  if (!Array.isArray(ideas[idx].linkedTaskIds)) return;
+  ideas[idx].linkedTaskIds = ideas[idx].linkedTaskIds.filter(id => id !== taskId);
+  ideas[idx].updatedAt = Date.now();
+  saveIdeas(ideas);
+}
+
+// 아이디어 자체 삭제 (id 기반)
+function deleteIdeaById(ideaId) {
+  saveIdeas(getIdeas().filter(i => i.id !== ideaId));
+}
+
+// 카드/이벤트 💡 prefix 즉시 갱신용
+function refreshIdeaSurfaces() {
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderLongTerm === 'function') renderLongTerm();
+  if (document.getElementById('weekly-modal').classList.contains('active') && typeof renderWeekly === 'function') renderWeekly();
+  if (document.getElementById('ideas-modal').classList.contains('active') && typeof renderIdeasList === 'function') renderIdeasList();
+}
+
+// ============== Idea Link Picker ==============
+let ideaLinkPickerContext = null; // { task, containerId }
+
+function openIdeaLinkPicker(task, containerId) {
+  if (!task || !task.id) { showToast('업무를 먼저 저장한 후 아이디어를 연결할 수 있습니다'); return; }
+  ideaLinkPickerContext = { task, containerId };
+  document.getElementById('idea-link-picker-search').value = '';
+  document.getElementById('idea-link-picker-new-title').value = '';
+  renderIdeaLinkPickerList();
+  document.getElementById('idea-link-picker-modal').classList.add('active');
+  setTimeout(() => document.getElementById('idea-link-picker-search').focus(), 50);
+}
+function closeIdeaLinkPicker() {
+  document.getElementById('idea-link-picker-modal').classList.remove('active');
+  ideaLinkPickerContext = null;
+}
+function renderIdeaLinkPickerList() {
+  const list = document.getElementById('idea-link-picker-list');
+  const q = (document.getElementById('idea-link-picker-search').value || '').trim().toLowerCase();
+  const ctx = ideaLinkPickerContext;
+  const taskId = ctx && ctx.task && ctx.task.id;
+  let ideas = getIdeas().filter(i => i.status !== 'closed');
+  if (q) {
+    ideas = ideas.filter(i => {
+      const inTitle = (i.title || '').toLowerCase().includes(q);
+      const inTags = (i.linkedTags || []).some(t => String(t).toLowerCase().includes(q));
+      return inTitle || inTags;
+    });
+  }
+  // 정렬: 최근 수정 순
+  ideas.sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  if (ideas.length === 0) {
+    list.innerHTML = `<div class="idea-pick-empty">${q ? '검색 결과 없음' : '아직 등록된 아이디어가 없습니다 — 아래에서 새로 만들어보세요'}</div>`;
+    return;
+  }
+  list.innerHTML = ideas.map(i => {
+    const linked = Array.isArray(i.linkedTaskIds) && i.linkedTaskIds.includes(taskId);
+    return `
+      <div class="idea-pick-row${linked ? ' disabled' : ''}" data-idea-id="${escapeHtml(i.id)}" ${linked ? '' : 'role="button"'}>
+        <span class="ip-status${i.status === 'paused' ? ' paused' : ''}">${ideaStatusLabel(i.status)}</span>
+        <span class="ip-title">${escapeHtml(i.title || '(제목 없음)')}</span>
+        ${linked ? '<span class="ip-linked">이미 연결됨</span>' : ''}
+      </div>
+    `;
+  }).join('');
+  list.querySelectorAll('.idea-pick-row:not(.disabled)').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.ideaId;
+      linkIdeaToTask(id, taskId);
+      refreshIdeaSurfaces();
+      if (ctx) renderRelatedIdeasInTaskModal(ctx.containerId, ctx.task);
+      closeIdeaLinkPicker();
+      showToast('아이디어 연결됨');
+    });
+  });
+}
+function createIdeaAndLinkFromPicker() {
+  const titleInput = document.getElementById('idea-link-picker-new-title');
+  const title = (titleInput.value || '').trim();
+  if (!title) { showToast('제목을 입력하세요'); titleInput.focus(); return; }
+  const ctx = ideaLinkPickerContext;
+  if (!ctx || !ctx.task || !ctx.task.id) return;
+  const now = Date.now();
+  const newIdea = {
+    id: uid(),
+    title, content: '', summary: '', status: 'active',
+    log: [], linkedTags: [], linkedTaskIds: [ctx.task.id],
+    createdAt: now, updatedAt: now,
+  };
+  const ideas = getIdeas();
+  ideas.push(newIdea);
+  saveIdeas(ideas);
+  refreshIdeaSurfaces();
+  renderRelatedIdeasInTaskModal(ctx.containerId, ctx.task);
+  closeIdeaLinkPicker();
+  showToast('새 아이디어가 생성되고 연결되었습니다');
 }
 
 // ===== AI 자동 태그·요약 (Claude Code 연동) =====
@@ -5340,6 +5821,9 @@ function saveIdea() {
   const linkedTags = (currentEditingIdea && currentEditingIdea.linkedTags) || [];
 
   const isExisting = currentEditingIdea && currentEditingIdea.id && ideas.some(i => i.id === currentEditingIdea.id);
+  const linkedTaskIds = (currentEditingIdea && Array.isArray(currentEditingIdea.linkedTaskIds))
+    ? currentEditingIdea.linkedTaskIds
+    : (isExisting ? (ideas[ideas.findIndex(i => i.id === currentEditingIdea.id)].linkedTaskIds || []) : []);
   let log = (currentEditingIdea && currentEditingIdea.log) ||
             (isExisting ? ideas[ideas.findIndex(i => i.id === currentEditingIdea.id)].log : []) || [];
 
@@ -5366,6 +5850,7 @@ function saveIdea() {
       title, content, summary, status,
       log,
       linkedTags,
+      linkedTaskIds,
       updatedAt: now,
     };
   } else {
@@ -5374,6 +5859,7 @@ function saveIdea() {
       title, content, summary, status,
       log,
       linkedTags,
+      linkedTaskIds,
       createdAt: now, updatedAt: now,
     };
     ideas.push(newIdea);
@@ -5635,9 +6121,13 @@ function renderTodos() {
           if (document.getElementById('weekly-modal').classList.contains('active')) renderWeekly();
         }
       });
-      // 카드 영역 클릭 시 longterm 편집 모달 (체크박스/드래그핸들 클릭은 제외)
+      // 카드 영역 클릭 시 longterm 편집 모달 (체크박스/드래그핸들/버튼 클릭은 제외)
+      // 주의: 내(isMine) weekly card는 readonly text input을 사용하므로,
+      //       단순 tagName==='INPUT' 차단을 쓰면 카드 본체가 막혀 모달이 안 뜬다 — 그래서 type별로 판별.
+      div.style.cursor = 'pointer';
       div.addEventListener('click', (e) => {
-        if (e.target.tagName === 'INPUT') return;
+        if (e.target.type === 'checkbox') return;
+        if (e.target.tagName === 'BUTTON') return;
         if (e.target.classList.contains('drag-handle')) return;
         const fresh = getLongTermTasks().find(t => t.id === taskId);
         if (fresh) openLongTermModal(fresh);
@@ -5649,10 +6139,14 @@ function renderTodos() {
     const div = document.createElement('div');
     div.className = 'todo-item' + (todo.done ? ' done' : '');
     div.draggable = true;
+    // 시간 prefix 매칭 — 있으면 일과계획 이벤트 매칭 후보 (클릭 시 모달)
+    const timeMatch = (todo.text || '').match(/^(\d{1,2}:\d{2})\s+(.+)$/);
+    const readonlyAttr = timeMatch ? 'readonly' : '';
+    const cursorStyle = timeMatch ? 'cursor:pointer;' : '';
     div.innerHTML = `
       <span class="drag-handle" title="끌어서 일과계획에 추가">⋮⋮</span>
       <input type="checkbox" ${todo.done ? 'checked' : ''}>
-      <input type="text" placeholder="할 일을 입력하세요..." value="${escapeHtml(todo.text || '')}" title="${escapeHtml(todo.text || '')}">
+      <input type="text" ${readonlyAttr} placeholder="할 일을 입력하세요..." value="${escapeHtml(todo.text || '')}" title="${escapeHtml(todo.text || '')}" style="${cursorStyle}">
       <button class="del-x">×</button>
     `;
     div.addEventListener('dragstart', (e) => {
@@ -5677,11 +6171,27 @@ function renderTodos() {
       renderTodos();
       renderEvents('planned');
     });
-    textInput.addEventListener('input', () => {
-      textInput.title = textInput.value;
-      updateCurrentData(d => { d.todos[idx].text = textInput.value; });
-    });
-    delBtn.addEventListener('click', () => {
+    // 시간 prefix 없는 todo만 직접 텍스트 편집 허용 (시간 prefix 있는 건 매칭 이벤트 모달에서 편집)
+    if (!timeMatch) {
+      textInput.addEventListener('input', () => {
+        textInput.title = textInput.value;
+        updateCurrentData(d => { d.todos[idx].text = textInput.value; });
+      });
+    } else {
+      // 카드 클릭 → 매칭 planned 이벤트 모달 (체크박스/버튼/드래그핸들 제외)
+      div.style.cursor = 'pointer';
+      div.addEventListener('click', (e) => {
+        if (e.target.type === 'checkbox') return;
+        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.classList.contains('drag-handle')) return;
+        const [, startTime, titlePart] = timeMatch;
+        const data = getCurrentData();
+        const ev = (data.planned || []).find(p => p.start === startTime && p.title === titlePart);
+        if (ev) openEventModal('planned', ev);
+      });
+    }
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       updateCurrentData(d => { d.todos.splice(idx, 1); });
       renderTodos();
     });
@@ -5847,6 +6357,34 @@ function computeMagneticStartMin(dropMin, events, excludeId, gapThreshold) {
   return Math.round(dropMin / SNAP_MIN) * SNAP_MIN;
 }
 
+// 일과계획 → 실제실행 드롭 전용 3단계 스냅:
+//   (a) 앞 일정이 30분 미만 거리 → 그 끝에 자석 스냅
+//   (b) (a) 아님 + drop 위치가 일과계획 원본 시작과 ±30분 이내 → 원본 시간 그대로 (첫 드래그 시 핵심)
+//   (c) 그 외 (앞 일정 멀거나 없고, 원본과도 멀음) → 30분 그리드 (00 또는 30)
+function computePlannedToActualStartMin(dropMin, actualEvents, originalStart) {
+  const originalStartMin = timeStrToMinutes(originalStart);
+  const candidates = actualEvents || [];
+  // 0) drop이 다른 일정 안쪽 → 그 끝에 붙임 (안전망)
+  for (const e of candidates) {
+    const sMin = timeStrToMinutes(e.start);
+    const eMin = timeStrToMinutes(e.end);
+    if (sMin <= dropMin && dropMin < eMin) return eMin;
+  }
+  // (a) 앞 일정이 30분 미만 거리 → 자석
+  const above = candidates.filter(e => timeStrToMinutes(e.end) <= dropMin);
+  if (above.length > 0) {
+    const latest = above.reduce((p, c) =>
+      timeStrToMinutes(c.end) > timeStrToMinutes(p.end) ? c : p
+    );
+    const latestEnd = timeStrToMinutes(latest.end);
+    if (dropMin - latestEnd < 30) return latestEnd;
+  }
+  // (b) 원본 시작과 ±30분 이내 → 원본 시간 그대로
+  if (Math.abs(dropMin - originalStartMin) <= 30) return originalStartMin;
+  // (c) 빈 영역 다른 시간대 → 30분 그리드
+  return Math.round(dropMin / 30) * 30;
+}
+
 function buildTimelineGrid(containerId, type) {
   const container = document.getElementById(containerId);
   container.innerHTML = '';
@@ -5945,7 +6483,7 @@ function buildTimelineGrid(containerId, type) {
         // 일과계획 → 실제실행: 복사 (자석 스냅 + 초록 색상)
         // 동시에 원본 일과계획 이벤트 → "완료(연한회색)" 처리 + 매칭 Todo도 done 체크
         if (evData.sourceType === 'planned' && type === 'actual') {
-          const startMin = computeMagneticStartMin(rawDropMin, data.actual || [], null, 60);
+          const startMin = computePlannedToActualStartMin(rawDropMin, data.actual || [], evData.start);
           const sMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
           const duration = timeStrToMinutes(evData.end) - timeStrToMinutes(evData.start);
           const endMin = Math.min(sMin + duration, 23 * 60 + 50);
@@ -5992,6 +6530,16 @@ function buildTimelineGrid(containerId, type) {
   eventsLayer.className = 'events-layer';
   eventsLayer.id = `events-${type}`;
   container.appendChild(eventsLayer);
+}
+
+// 타임라인 초기 스크롤 위치(아침 8시)로 정렬 — 두 컬럼은 각자 독립 스크롤
+function setupTimelineScroll() {
+  const plannedBody = document.getElementById('timeline-planned')?.closest('.timeline-body');
+  const actualBody = document.getElementById('timeline-actual')?.closest('.timeline-body');
+  if (!plannedBody || !actualBody) return;
+  const initialScroll = (INITIAL_SCROLL_HOUR - START_HOUR) * PX_PER_HOUR;
+  plannedBody.scrollTop = initialScroll;
+  actualBody.scrollTop = initialScroll;
 }
 
 const MIN_VISUAL_MIN = 20; // 최소 시각적 높이(분 환산) — 짧은 일정도 이만큼 자리 차지
@@ -6641,19 +7189,258 @@ function executeImport() {
 }
 
 // ============== 업무 정리 (주간/월간/연간) ==============
-function toggleSummaryDropdown() {
-  const dd = document.getElementById('summary-dropdown');
-  const btn = document.getElementById('summary-btn');
-  if (!dd.hidden) { dd.hidden = true; return; }
-  const rect = btn.getBoundingClientRect();
-  dd.style.top = (rect.bottom + 4) + 'px';
-  dd.style.right = (window.innerWidth - rect.right) + 'px';
-  dd.style.left = 'auto';
-  dd.hidden = false;
+// ===== 업무 정리 모달 (다중 주/월 선택) =====
+let summaryNavYear = new Date().getFullYear();
+let summaryPeriodType = 'month';
+// 선택 항목 key 형식:
+//   week: 'week:YYYY-MM-DD' (해당 주의 월요일 dateKey)
+//   month: 'month:YYYY-MM'
+//   quarter: 'quarter:YYYY-Q' (단일)
+//   half: 'half:YYYY-H' (단일)
+//   year: 'year:YYYY' (단일)
+let summarySelected = new Set();
+
+function openSummaryModal() {
+  summaryNavYear = currentDate ? currentDate.getFullYear() : new Date().getFullYear();
+  summaryPeriodType = 'month';
+  summarySelected = new Set();
+  document.querySelector('input[name="summary-period-type"][value="month"]').checked = true;
+  document.getElementById('summary-modal').classList.add('active');
+  renderSummaryPicker();
+  renderSummarySelected();
 }
-function closeSummaryDropdown() {
-  document.getElementById('summary-dropdown').hidden = true;
+function closeSummaryModal() {
+  document.getElementById('summary-modal').classList.remove('active');
 }
+
+// 기간 종류별 연도 nav 표시 정책:
+//   week / month : navYear 사용 (좌우 화살표로 연도 이동)
+//   quarter / half : 시스템 year로 고정 (다른 연도 분기/반기는 의미가 모호함 — 회고는 보통 당해)
+//   year : nav 숨김 (시스템 year ±5년을 한 화면에 표시)
+function getYearNavVisibility(type) {
+  return type === 'week' || type === 'month';
+}
+
+function renderSummaryPicker() {
+  const yearNav = document.getElementById('sm-year-nav');
+  // 분기/반기는 시스템 year로 강제 정렬
+  if (summaryPeriodType === 'quarter' || summaryPeriodType === 'half') {
+    summaryNavYear = new Date().getFullYear();
+  }
+  yearNav.style.display = getYearNavVisibility(summaryPeriodType) ? '' : 'none';
+  document.getElementById('sm-year-label').textContent = `${summaryNavYear}년`;
+  const picker = document.getElementById('summary-picker');
+  if (summaryPeriodType === 'month') {
+    picker.innerHTML = renderMonthGrid();
+    picker.querySelectorAll('.month-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const key = cell.dataset.key;
+        if (summarySelected.has(key)) summarySelected.delete(key);
+        else summarySelected.add(key);
+        renderSummaryPicker();
+        renderSummarySelected();
+      });
+    });
+  } else if (summaryPeriodType === 'week') {
+    picker.innerHTML = renderWeekGroups();
+    picker.querySelectorAll('.week-option input').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const key = cb.dataset.key;
+        if (cb.checked) summarySelected.add(key);
+        else summarySelected.delete(key);
+        renderSummarySelected();
+      });
+    });
+    picker.querySelectorAll('.wg-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const keys = btn.dataset.weeks.split(',');
+        const allSelected = keys.every(k => summarySelected.has(k));
+        if (allSelected) keys.forEach(k => summarySelected.delete(k));
+        else keys.forEach(k => summarySelected.add(k));
+        renderSummaryPicker();
+        renderSummarySelected();
+      });
+    });
+    // 오늘이 속한 주의 mondayKey 계산 → 해당 .week-option을 viewport 중앙에 + 강조
+    const today = new Date();
+    const todayMonday = getMondayOf(today);
+    const todayKey = `week:${formatDateKey(todayMonday)}`;
+    const todayElem = picker.querySelector(`.week-option input[data-key="${todayKey}"]`);
+    if (todayElem) {
+      const wrap = todayElem.closest('.week-option');
+      if (wrap) {
+        wrap.classList.add('today-week');
+        // modal이 fully rendered될 때까지 한 frame 대기 (그렇지 않으면 getBoundingClientRect가 0)
+        // getBoundingClientRect 차이로 정확한 상대 위치 계산 (offsetTop은 positioned ancestor 부재로 부정확)
+        centerInScrollContainer(picker, wrap);
+      }
+    }
+  } else if (summaryPeriodType === 'quarter') {
+    picker.innerHTML = renderMultiSelectOptions([
+      { key: `quarter:${summaryNavYear}-1`, label: `${summaryNavYear}년 1분기 (1~3월)` },
+      { key: `quarter:${summaryNavYear}-2`, label: `${summaryNavYear}년 2분기 (4~6월)` },
+      { key: `quarter:${summaryNavYear}-3`, label: `${summaryNavYear}년 3분기 (7~9월)` },
+      { key: `quarter:${summaryNavYear}-4`, label: `${summaryNavYear}년 4분기 (10~12월)` },
+    ]);
+    bindMultiPeriodChoice();
+  } else if (summaryPeriodType === 'half') {
+    picker.innerHTML = renderMultiSelectOptions([
+      { key: `half:${summaryNavYear}-1`, label: `${summaryNavYear}년 상반기 (1~6월)` },
+      { key: `half:${summaryNavYear}-2`, label: `${summaryNavYear}년 하반기 (7~12월)` },
+    ]);
+    bindMultiPeriodChoice();
+  } else if (summaryPeriodType === 'year') {
+    // 시스템 year 중심 ±5년 (총 11개)
+    const sysY = new Date().getFullYear();
+    const opts = [];
+    for (let y = sysY - 5; y <= sysY + 5; y++) {
+      opts.push({ key: `year:${y}`, label: `${y}년 전체`, isCurrent: y === sysY });
+    }
+    picker.innerHTML = renderMultiSelectOptions(opts);
+    bindMultiPeriodChoice();
+    // 현재 연도가 한눈에 보이도록 스크롤
+    const currentLabel = picker.querySelector('.single-period-options label.is-current-year');
+    if (currentLabel) centerInScrollContainer(picker, currentLabel);
+  }
+}
+
+// 스크롤 컨테이너 내부에서 target을 중앙으로 — modal active 직후엔 layout 보장 위해 한 frame 대기
+function centerInScrollContainer(container, target) {
+  requestAnimationFrame(() => {
+    const cRect = container.getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+    // 현재 scrollTop을 더해야 컨테이너 내부 절대 위치
+    const relTop = (tRect.top - cRect.top) + container.scrollTop;
+    const newScroll = relTop - container.clientHeight / 2 + target.clientHeight / 2;
+    container.scrollTop = Math.max(0, newScroll);
+  });
+}
+
+// 다중 선택 옵션 렌더 — 클릭 시 toggle
+// opts: [{ key, label, isCurrent? }]
+function renderMultiSelectOptions(opts) {
+  let html = '<div class="single-period-options">';
+  opts.forEach(o => {
+    const cls = (summarySelected.has(o.key) ? 'selected' : '') + (o.isCurrent ? ' is-current-year' : '');
+    html += `<label class="${cls.trim()}" data-key="${o.key}">${escapeHtml(o.label)}</label>`;
+  });
+  html += '</div>';
+  return html;
+}
+
+function bindMultiPeriodChoice() {
+  document.querySelectorAll('#summary-picker .single-period-options label').forEach(lbl => {
+    lbl.addEventListener('click', () => {
+      const key = lbl.dataset.key;
+      // toggle — 있으면 제거, 없으면 추가
+      if (summarySelected.has(key)) summarySelected.delete(key);
+      else summarySelected.add(key);
+      renderSummaryPicker();
+      renderSummarySelected();
+    });
+  });
+}
+
+function renderMonthGrid() {
+  let html = '<div class="month-grid">';
+  for (let m = 1; m <= 12; m++) {
+    const key = `month:${summaryNavYear}-${String(m).padStart(2,'0')}`;
+    const cls = summarySelected.has(key) ? 'selected' : '';
+    html += `<div class="month-cell ${cls}" data-key="${key}">${m}월</div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderWeekGroups() {
+  let html = '';
+  for (let m = 1; m <= 12; m++) {
+    const weeks = enumerateWeeksOfMonth(summaryNavYear, m);
+    if (weeks.length === 0) continue;
+    const keys = weeks.map(w => `week:${w.mondayKey}`);
+    const allSelected = keys.every(k => summarySelected.has(k));
+    html += `<div class="week-group">
+      <div class="week-group-title">
+        📅 ${summaryNavYear}년 ${m}월
+        <button class="wg-toggle" data-ym="${summaryNavYear}-${m}" data-weeks="${keys.join(',')}">${allSelected ? '전체 해제' : '전체 선택'}</button>
+      </div>
+      <div class="week-options">`;
+    weeks.forEach(w => {
+      const key = `week:${w.mondayKey}`;
+      const checked = summarySelected.has(key) ? 'checked' : '';
+      html += `<label class="week-option"><input type="checkbox" data-key="${key}" ${checked}> ${w.weekNum}주차 (${w.label})</label>`;
+    });
+    html += `</div></div>`;
+  }
+  return html;
+}
+
+// 주어진 연·월에 "그 월에 속하는 주들" 나열 (목요일 기준)
+function enumerateWeeksOfMonth(year, month) {
+  // 그 월의 첫 날부터 마지막 날까지 모든 월요일 수집
+  // 단 그 월요일의 주(목요일)가 해당 월에 속하는 것만
+  const out = [];
+  const first = new Date(year, month - 1, 1);
+  const last = new Date(year, month, 0);
+  let d = new Date(first);
+  // 첫 월요일까지 이동
+  while (d.getDay() !== 1) d.setDate(d.getDate() - 1);
+  // 마지막 날 + 1주까지 순회
+  while (d <= addDays(last, 7)) {
+    const info = getWeekLabelInfo(d);
+    if (info.year === year && info.month === month) {
+      const monday = new Date(d);
+      const friday = addDays(monday, 4);
+      out.push({
+        weekNum: info.weekNum,
+        mondayKey: formatDateKey(monday),
+        label: `${monday.getMonth()+1}/${monday.getDate()} ~ ${friday.getMonth()+1}/${friday.getDate()}`,
+      });
+    }
+    d.setDate(d.getDate() + 7);
+  }
+  return out;
+}
+
+function renderSummarySelected() {
+  const list = document.getElementById('sm-selected-list');
+  document.getElementById('sm-selected-count').textContent = summarySelected.size;
+  if (summarySelected.size === 0) {
+    list.innerHTML = '<span class="ss-empty">선택된 항목이 없습니다</span>';
+    return;
+  }
+  // 정렬: 시간 순
+  const arr = [...summarySelected].sort();
+  list.innerHTML = arr.map(k => `<span class="ss-chip">${escapeHtml(summaryKeyToLabel(k))}</span>`).join('');
+}
+
+function summaryKeyToLabel(key) {
+  if (key.startsWith('week:')) {
+    const mondayKey = key.slice(5);
+    const monday = new Date(mondayKey + 'T00:00:00');
+    const info = getWeekLabelInfo(monday);
+    return `${info.year}.${info.month}월 ${info.weekNum}주차`;
+  }
+  if (key.startsWith('month:')) {
+    const [y, m] = key.slice(6).split('-');
+    return `${y}.${parseInt(m)}월`;
+  }
+  if (key.startsWith('quarter:')) {
+    const [y, q] = key.slice(8).split('-');
+    return `${y}년 ${q}분기`;
+  }
+  if (key.startsWith('half:')) {
+    const [y, h] = key.slice(5).split('-');
+    return `${y}년 ${h === '1' ? '상' : '하'}반기`;
+  }
+  if (key.startsWith('year:')) {
+    return `${key.slice(5)}년`;
+  }
+  return key;
+}
+
+function closeSummaryDropdown() { /* 호환용 — 더 이상 dropdown 안 씀 */ }
+function toggleSummaryDropdown() { openSummaryModal(); }
 
 function getPeriodRange(period, anchorDate) {
   const now = anchorDate || new Date();
@@ -6899,6 +7686,54 @@ function computePeriodStats(days) {
   };
 }
 
+// 분석 프롬프트의 "프로젝트별 진행 상황" 섹션 (주간/월간/분기/반기/연간 공통)
+// 주간업무자료/ 폴더의 가장 최근 .pptx의 "주요 프로젝트 별 진행 타임라인" 슬라이드를 기준으로
+// 프로젝트 항목별 계획 vs 실제 진행 vs 평가 vs 다음 액션을 한 눈에 정리하도록 지시.
+function buildProjectTimelineSection(rangeLabel) {
+  const basePath = `D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ`;
+  const refFolder = basePath + `\\주간업무자료`;
+
+  let s = `## 📊 프로젝트별 진행 상황 분석 (필수)\n\n`;
+  s += `위 데이터 분석에 더해, **각 프로젝트의 진행 현황**을 한 눈에 볼 수 있게 정리해주세요.\n\n`;
+
+  s += `### 📁 참조 자료\n`;
+  s += `- **폴더**: \`${refFolder}\\\`\n`;
+  s += `- 이 폴더 안의 **가장 최근 .pptx 파일**을 읽으세요 (수정 시각 기준 최신, 분석 기간에 가장 가까운 것 우선)\n`;
+  s += `- 그 안에서 **"주요 프로젝트 별 진행 타임라인"** 슬라이드 (또는 가장 비슷한 이름의 슬라이드)를 찾아:\n`;
+  s += `  - 모든 **프로젝트 항목** 추출\n`;
+  s += `  - 각 항목의 **계획 마일스톤·예정 기간** 추출\n`;
+  s += `  - 분석 기간 **종료일 시점**에 와있어야 할 위치(=계획상 현재 위치) 파악\n\n`;
+
+  s += `### 작성 형식 (보고서 안에 다음 두 블록 모두 포함)\n\n`;
+
+  s += `**① 한 눈에 보기 — 요약 표** (보고서 상단 권장)\n\n`;
+  s += `| 프로젝트 | 계획상 현재 위치 (마일스톤) | 이번 ${rangeLabel} 실제 진행 | 상태 |\n`;
+  s += `|---|---|---|---|\n`;
+  s += `| (프로젝트명) | (ppt 기준 ${rangeLabel} 종료일에 와있어야 할 마일스톤) | (실제 한 업무 1~2줄 요약) | 🟢/🟡/🔴 |\n\n`;
+
+  s += `**② 각 프로젝트별 상세** (요약 표 아래)\n\n`;
+  s += `각 프로젝트마다 다음 구조로:\n\n`;
+  s += `\`\`\`\n`;
+  s += `#### 🔸 [프로젝트 이름]\n`;
+  s += `- **계획상 현재 위치**: ppt 타임라인 기준 ${rangeLabel} 종료일 시점에 진행되어야 할 마일스톤·산출물\n`;
+  s += `- **이번 ${rangeLabel}에 진행한 업무**: 위 "원본 데이터"·priority·achievements 중 이 프로젝트 키워드가 매칭되는 항목들 (날짜·시간 포함, bullet)\n`;
+  s += `- **진행 평가**: 🟢 정상 / 🟡 지연 우려 / 🔴 문제 — 짧은 근거 1줄\n`;
+  s += `- **다음 액션**: 다음 ${rangeLabel} 안에 처리해야 할 핵심 액션 1~3개\n`;
+  s += `\`\`\`\n\n`;
+
+  s += `### 매칭 가이드\n`;
+  s += `- ppt에서 추출한 프로젝트 키워드(예: "NCC NiQ", "Atlas 보라매", "5-ALA FGS")를 actual 이벤트 제목·카테고리·priority·achievements와 **부분 일치**(대소문자·공백 무시)로 매칭\n`;
+  s += `- ppt에 있는데 이번 ${rangeLabel} 데이터에 매칭이 없으면 → 🟡 또는 🔴 + "이 ${rangeLabel} 활동 없음" 으로 명시 (절대 누락 금지)\n`;
+  s += `- 반대로 ppt에 없는데 데이터에 자주 등장하는 활동이 있으면 → "기타 활동" 섹션으로 별도 정리\n\n`;
+
+  s += `### ⚠️ 누락 시 조치\n`;
+  s += `폴더에 .pptx 파일이 없거나 타임라인 슬라이드를 못 찾으면:\n`;
+  s += `1. 보고서 상단에 명시: \`⚠️ 주간업무자료에서 프로젝트 타임라인을 찾지 못해 진행 평가는 actual 데이터 기준 추정\`\n`;
+  s += `2. 대신 actual 이벤트·priority의 **카테고리/주요 업무 키워드**로 동일 형식 요약 표·상세 작성 — 진행 평가는 시간 투입량·완료 여부로 추정\n\n`;
+
+  return s;
+}
+
 function buildAnalysisPrompt(period, range, days, stats) {
   const startStr = formatDateKey(range.start).replaceAll('-', '.');
   const endStr = formatDateKey(range.end).replaceAll('-', '.');
@@ -7029,8 +7864,12 @@ function buildAnalysisPrompt(period, range, days, stats) {
   p += `3. **계획 vs 실행 패턴**: 미수행·지연·계획 외 업무에서 보이는 경향\n`;
   p += `4. **분야별 성과 분포**: 집중한 분야 vs 부족했던 분야 (카테고리/중요도/긴급 기준)\n`;
   p += `5. **Top Priority 달성률**: 우선순위 업무를 실제 얼마나 처리했는지\n`;
-  p += `6. **다음 ${range.label} 계획 제안**: 균형 / 우선순위 / 시간 관리 개선점\n\n`;
+  p += `6. **다음 ${range.label} 계획 제안**: 균형 / 우선순위 / 시간 관리 개선점\n`;
+  p += `7. **프로젝트별 진행 상황** (아래 별도 섹션 참조) — 보고서에 반드시 포함\n\n`;
   p += `목적: 회고와 다음 ${range.label} 계획 참고용. 마크다운, 가독성 좋게.\n\n`;
+
+  // 프로젝트별 진행 상황 분석 지침 (주간업무자료 ppt 참조)
+  p += buildProjectTimelineSection(range.label);
 
   p += `## 📁 저장 요청 (중요)\n\n`;
   p += `**작성한 분석 보고서를 다음 경로에 마크다운 파일로 저장해주세요:**\n\n`;
@@ -7061,6 +7900,232 @@ async function generatePeriodSummary(period) {
   } catch (e) {
     showToast('생성 실패: ' + e.message);
   }
+}
+
+// 선택된 다중 항목으로 통합 프롬프트 생성
+async function generateMultiSummary() {
+  try {
+    if (summarySelected.size === 0) { showToast('선택된 항목이 없습니다'); return; }
+    const keys = [...summarySelected].sort();
+    const first = keys[0];
+
+    // 분기/반기/연간 — 복수 처리
+    if (first.startsWith('quarter:') || first.startsWith('half:') || first.startsWith('year:')) {
+      const period = first.split(':')[0];
+      const items = [];
+      for (const key of keys) {
+        const parts = key.split(':')[1].split('-');
+        const y = parseInt(parts[0]);
+        const suffix = parts[1] || '';
+        const anchor = buildAnchorForSingle(period, y, suffix);
+        const range = getPeriodRange(period, anchor);
+        const days = collectPeriodData(range);
+        const stats = computePeriodStats(days);
+        if (stats.totalActualMin === 0 && stats.totalPlannedMin === 0) continue;
+        const { folderPath, fileName } = getAnalysisPath(period, range);
+        items.push({ key, period, range, days, stats, folderPath, fileName });
+      }
+      if (items.length === 0) {
+        showToast('선택된 기간에 데이터가 없습니다'); return;
+      }
+      // 단일이면 기존 단일 분석 흐름 그대로
+      if (items.length === 1) {
+        const it = items[0];
+        const prompt = buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
+        await navigator.clipboard.writeText(prompt);
+        closeSummaryModal();
+        showToast(`✅ ${it.range.label} 분석 프롬프트 복사 완료<br>📄 ${it.folderPath.join('/')}/${it.fileName}`);
+        return;
+      }
+      // 복수 — 통합 프롬프트 (각 항목별 buildAnalysisPrompt 결과를 separator로 묶음)
+      const periodKor = period === 'quarter' ? '분기' : period === 'half' ? '반기' : '연간';
+      const basePath = 'D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ';
+      let prompt = `# 다중 ${periodKor} 분석 (${items.length}개 파일로 저장)\n\n`;
+      prompt += `## 작업 요청\n선택된 ${items.length}개 ${periodKor} 데이터를 분석하여 각 ${periodKor}별로 **별도 마크다운 파일**을 저장해주세요.\n\n`;
+      prompt += `## 저장할 파일 목록\n`;
+      items.forEach(it => {
+        const full = `${basePath}\\${it.folderPath.join('\\')}\\${it.fileName}`;
+        prompt += `- \`${full}\`\n`;
+      });
+      prompt += `\n각 파일은 아래 항목 섹션의 "📁 저장 요청" 경로에 저장하면 됩니다.\n\n`;
+      items.forEach((it, i) => {
+        prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        prompt += `# 항목 ${i+1}/${items.length}: ${it.range.label}\n\n`;
+        prompt += buildAnalysisPrompt(it.period, it.range, it.days, it.stats);
+      });
+      prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+      prompt += `# 📝 처리 절차 (전체)\n`;
+      prompt += `1. 각 폴더(\`분기분석/\`, \`반기분석/\`, \`연간분석/\` 중 해당)가 없으면 먼저 생성\n`;
+      prompt += `2. 위 ${items.length}개 항목을 각각 분석하여 위 "저장할 파일 목록"의 경로에 저장\n`;
+      prompt += `3. 같은 파일이 있으면 덮어쓰기\n`;
+      prompt += `4. 모든 저장 완료 후 사용자에게 각 보고서 핵심 본문도 답변으로 출력\n`;
+      await navigator.clipboard.writeText(prompt);
+      closeSummaryModal();
+      const labels = items.map(it => it.range.label).join(', ');
+      showToast(`✅ ${items.length}개 ${periodKor} 분석 프롬프트 복사 완료 (${labels})`);
+      return;
+    }
+
+    // 다중 모드 (week 또는 month) — 월별 그룹핑하여 통합 프롬프트
+    const monthGroups = {}; // 'YYYY-MM' → { year, month, weeks: [{mondayKey, range, days, stats}], monthData?: ... }
+    for (const key of keys) {
+      if (key.startsWith('month:')) {
+        const [y, m] = key.slice(6).split('-').map(Number);
+        const ym = `${y}-${String(m).padStart(2,'0')}`;
+        if (!monthGroups[ym]) monthGroups[ym] = { year: y, month: m, weeks: [], includeMonthFull: false };
+        monthGroups[ym].includeMonthFull = true;
+      } else if (key.startsWith('week:')) {
+        const mondayKey = key.slice(5);
+        const monday = new Date(mondayKey + 'T00:00:00');
+        const info = getWeekLabelInfo(monday);
+        const ym = `${info.year}-${String(info.month).padStart(2,'0')}`;
+        if (!monthGroups[ym]) monthGroups[ym] = { year: info.year, month: info.month, weeks: [], includeMonthFull: false };
+        monthGroups[ym].weeks.push({ monday, mondayKey, weekNum: info.weekNum });
+      }
+    }
+    const sortedYms = Object.keys(monthGroups).sort();
+    if (sortedYms.length === 0) { showToast('선택된 항목이 없습니다'); return; }
+
+    const basePath = 'D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ';
+    const folderFullPath = basePath + '\\월간분석';
+
+    let prompt = `# 업무 정리 — 다중 기간 분석 (월별 파일로 저장)\n\n`;
+    prompt += `## 작업 요청\n선택된 ${sortedYms.length}개 월의 데이터를 분석하여 **각 월별로 별도 마크다운 파일을 저장**해주세요.\n`;
+    prompt += `각 파일은 "월 전체 요약 + 주차별 분석 + 주차 간 비교" 구조로 작성.\n\n`;
+    prompt += `## 저장 폴더\n\`${folderFullPath}\\\` (없으면 생성)\n\n`;
+
+    // 각 월별로 데이터 + 파일 정보
+    const fileSpecs = [];
+    for (const ym of sortedYms) {
+      const grp = monthGroups[ym];
+      prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+      prompt += `# ${grp.year}년 ${grp.month}월\n`;
+      const fileName = `${grp.year}년 ${grp.month}월 업무분석.md`;
+      const fileFullPath = `${folderFullPath}\\${fileName}`;
+      fileSpecs.push({ ym, year: grp.year, month: grp.month, fileFullPath, weeks: grp.weeks, includeMonthFull: grp.includeMonthFull });
+      prompt += `**📁 저장 파일**: \`${fileFullPath}\`\n\n`;
+
+      // 월 전체 (월간 mode 또는 항상 월 요약 위해)
+      if (grp.includeMonthFull) {
+        const anchor = new Date(grp.year, grp.month - 1, 15);
+        const range = getPeriodRange('month', anchor);
+        const days = collectPeriodData(range);
+        const stats = computePeriodStats(days);
+        prompt += `## [월 전체 데이터] — ${grp.year}.${grp.month} (${formatDateKey(range.start)} ~ ${formatDateKey(range.end)})\n`;
+        prompt += renderMonthDataSection(days, stats);
+      }
+
+      // 선택된 주차들
+      if (grp.weeks.length > 0) {
+        const weeksSorted = grp.weeks.sort((a, b) => a.mondayKey.localeCompare(b.mondayKey));
+        for (const w of weeksSorted) {
+          const range = getPeriodRange('week', w.monday);
+          const days = collectPeriodData(range);
+          const stats = computePeriodStats(days);
+          prompt += `\n## [${w.weekNum}주차 데이터] — ${grp.year}.${grp.month}월 ${w.weekNum}주차 (${formatDateKey(range.start)} ~ ${formatDateKey(range.end)})\n`;
+          prompt += renderMonthDataSection(days, stats);
+        }
+      }
+    }
+
+    prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    prompt += `# 📝 작성 + 저장 지침\n\n`;
+    prompt += `## 각 월별 파일 구조 (반드시 이대로)\n\n`;
+    prompt += `\`\`\`markdown\n`;
+    prompt += `# {YYYY}년 {M}월 업무분석\n\n`;
+    prompt += `## 📌 월 요약\n`;
+    prompt += `- 이 월의 핵심 활동, 시간 사용 패턴, 주요 성과·이슈를 한 페이지로 정리\n\n`;
+    prompt += `## 📊 프로젝트별 진행 상황\n`;
+    prompt += `- 한 눈에 보기 요약 표 + 프로젝트별 상세 (아래 "프로젝트별 진행 상황 분석" 지침 참조)\n\n`;
+    prompt += `## 1주차 (날짜 범위)\n`;
+    prompt += `- 활동·시간 분포·달성률·이슈\n\n`;
+    prompt += `## 2주차 (날짜 범위)\n`;
+    prompt += `...\n\n`;
+    prompt += `## 📊 주차 간 비교\n`;
+    prompt += `- 시간 사용 트렌드, 카테고리 변화, 패턴 진화, 개선/악화 추세\n\n`;
+    prompt += `## 다음 달 제안\n`;
+    prompt += `\`\`\`\n\n`;
+    // 프로젝트별 진행 상황 분석 지침 — 각 월 파일에 동일 적용
+    prompt += buildProjectTimelineSection('월');
+
+    prompt += `## 처리 절차\n`;
+    prompt += `1. 폴더(\`${folderFullPath}\`)가 없으면 먼저 생성\n`;
+    prompt += `2. 각 월의 분석 보고서를 위 경로에 마크다운 파일로 저장 (총 ${sortedYms.length}개 파일)\n`;
+    prompt += `3. 같은 파일이 이미 있으면 덮어쓰기\n`;
+    prompt += `4. 저장할 파일 목록:\n`;
+    fileSpecs.forEach(s => { prompt += `   - \`${s.fileFullPath}\`\n`; });
+    prompt += `5. 모든 저장 완료 후 사용자에게 각 보고서 핵심 본문도 답변으로 출력\n\n`;
+    prompt += `**주의**: 데이터가 없는 주차는 "데이터 없음"으로 명시하고 건너뛰지 마세요 (선택된 주차 모두 표시).\n`;
+
+    await navigator.clipboard.writeText(prompt);
+    closeSummaryModal();
+    const fileList = fileSpecs.map(s => `${s.year}.${s.month}월`).join(', ');
+    showToast(`✅ 분석 프롬프트 복사 완료 — ${sortedYms.length}개 월 파일 (${fileList})`);
+  } catch (e) {
+    showToast('생성 실패: ' + e.message);
+    console.error(e);
+  }
+}
+
+// 단일 모드(quarter/half/year)용 anchor 날짜
+function buildAnchorForSingle(period, year, suffix) {
+  if (period === 'quarter') return new Date(year, (parseInt(suffix) - 1) * 3 + 1, 15);
+  if (period === 'half') return new Date(year, parseInt(suffix) === 1 ? 2 : 8, 15);
+  if (period === 'year') return new Date(year, 5, 15);
+  return new Date(year, 0, 1);
+}
+
+// 한 기간(주 or 월)의 데이터 섹션 (통합 프롬프트의 일부로 사용)
+function renderMonthDataSection(days, stats) {
+  const wd = stats.workingDays || 1;
+  const stateLabels = {
+    matched: '🟢 계획대로', missed: '🔴 미수행', overrun: '🟠 지연',
+    unplanned: '🔵 계획 외', break: '⚪ 식사/휴식', other: '(미분류)',
+  };
+  let s = '';
+  s += `- 활동일: ${wd}일 / 총 계획 ${fmtHM(stats.totalPlannedMin)} / 총 실행 ${fmtHM(stats.totalActualMin)}\n`;
+  s += `- 상태별: `;
+  s += Object.entries(stats.colorMins).filter(([,v]) => v > 0)
+    .map(([k, v]) => `${stateLabels[k]} ${fmtHM(v)}`).join(' / ');
+  s += `\n`;
+  const cats = Object.entries(stats.categoryMins).sort((a,b) => b[1]-a[1]);
+  if (cats.length > 0) {
+    s += `- 카테고리: `;
+    s += cats.map(([c, m]) => `${c} ${fmtHM(m)}`).join(' / ');
+    s += `\n`;
+  }
+  // Top tasks
+  if (stats.topTasks.length > 0) {
+    s += `- Top 업무 (시간): `;
+    s += stats.topTasks.slice(0, 5).map(t => `${t.title}(${fmtHM(t.min)})`).join(', ');
+    s += `\n`;
+  }
+  // 일별 priority + achievements 간략
+  let priLines = [];
+  let achLines = [];
+  days.forEach(({ date, data }) => {
+    const ps = (data.priority || []).filter(x => x && x.text);
+    if (ps.length > 0) priLines.push(`  ${date}: ${ps.map(x => `${x.text}${x.done ? '✓' : ''}`).join(' / ')}`);
+    const ach = (data.achievements || []).filter(a => a);
+    if (ach.length > 0) achLines.push(`  ${date}: ${ach.join(' / ')}`);
+  });
+  if (priLines.length) s += `- 일별 Top Priority:\n${priLines.join('\n')}\n`;
+  if (achLines.length) s += `- 일별 성과:\n${achLines.join('\n')}\n`;
+  // 원본 일과 (간략)
+  s += `- 일과 원본:\n`;
+  days.forEach(({ date, weekday, data }) => {
+    const actual = (data.actual || []);
+    if (actual.length === 0) return;
+    s += `  ${date}(${weekday}): `;
+    s += actual.sort((a,b) => timeStrToMinutes(a.start)-timeStrToMinutes(b.start))
+      .map(e => {
+        const cm = COLORS.find(c => c.bg === e.color);
+        const tag = cm?.special ? `[${cm.special}]` : '';
+        return `${e.start}~${e.end} ${e.title}${tag}`;
+      }).join(' | ');
+    s += `\n`;
+  });
+  return s;
 }
 
 // ============== Toast ==============
@@ -7114,6 +8179,9 @@ function init() {
 
   buildTimelineGrid('timeline-planned', 'planned');
   buildTimelineGrid('timeline-actual', 'actual');
+  // 타임라인은 0~24시 전체이지만 초기 viewport는 INITIAL_SCROLL_HOUR(8시)부터 — 새벽 시간대는 위로 스크롤
+  // 두 컬럼은 각자 독립 스크롤
+  setupTimelineScroll();
   // 일회성 backfill: 기존 planned 이벤트 중 todos에 없는 것 동기화
   if (typeof backfillTodosFromPlannedOnce === 'function') backfillTodosFromPlannedOnce();
   renderAll();
@@ -7375,23 +8443,26 @@ function init() {
     if (e.target.id === 'event-modal') closeEventModal();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeEventModal(); closeLongTermModal(); closeWeeklyModal(); closeSettingsModal(); closeSummaryDropdown(); closeImportModal(); }
+    if (e.key === 'Escape') { closeEventModal(); closeLongTermModal(); closeWeeklyModal(); closeSettingsModal(); closeSummaryModal(); closeImportModal(); }
   });
 
-  // 업무 정리 드롭다운 (주간/월간/연간)
-  document.getElementById('summary-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleSummaryDropdown();
+  // 업무 정리 모달 (다중 주/월 선택 + 단일 분기/반기/연)
+  document.getElementById('summary-btn').addEventListener('click', openSummaryModal);
+  document.getElementById('sm-cancel-btn').addEventListener('click', closeSummaryModal);
+  document.getElementById('summary-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'summary-modal') closeSummaryModal();
   });
-  document.querySelectorAll('#summary-dropdown button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      closeSummaryDropdown();
-      generatePeriodSummary(btn.dataset.period);
+  document.getElementById('sm-generate-btn').addEventListener('click', generateMultiSummary);
+  document.getElementById('sm-year-prev').addEventListener('click', () => { summaryNavYear--; renderSummaryPicker(); });
+  document.getElementById('sm-year-next').addEventListener('click', () => { summaryNavYear++; renderSummaryPicker(); });
+  document.querySelectorAll('input[name="summary-period-type"]').forEach(r => {
+    r.addEventListener('change', () => {
+      summaryPeriodType = r.value;
+      // 모드 전환 시 선택 초기화 (모드 간 항목 의미 다름)
+      summarySelected = new Set();
+      renderSummaryPicker();
+      renderSummarySelected();
     });
-  });
-  document.addEventListener('click', (e) => {
-    const dd = document.getElementById('summary-dropdown');
-    if (!dd.hidden && !dd.contains(e.target)) closeSummaryDropdown();
   });
 
   // ============== 되풀이 모달 바인딩 ==============
@@ -7440,6 +8511,17 @@ function init() {
     if (cb && cb.onAll) cb.onAll();
   });
   document.getElementById('recurring-choice-cancel').addEventListener('click', closeChoiceModal);
+
+  // 아이디어 link picker 모달
+  document.getElementById('idea-link-picker-cancel').addEventListener('click', closeIdeaLinkPicker);
+  document.getElementById('idea-link-picker-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'idea-link-picker-modal') closeIdeaLinkPicker();
+  });
+  document.getElementById('idea-link-picker-search').addEventListener('input', renderIdeaLinkPickerList);
+  document.getElementById('idea-link-picker-new-btn').addEventListener('click', createIdeaAndLinkFromPicker);
+  document.getElementById('idea-link-picker-new-title').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); createIdeaAndLinkFromPicker(); }
+  });
 
   // 폰 모드 — 주간업무 필터 아코디언 (라벨 탭 → 펼침/접힘, 다른 라벨 탭 시 자동 닫힘)
   document.querySelectorAll('#weekly-modal .weekly-filters .filter-label').forEach(label => {
