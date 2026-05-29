@@ -1174,6 +1174,11 @@
   .outlook-event-row .oe-skip {
     color: #b04040; font-size: 11px; margin-top: 4px;
   }
+  .outlook-event-row .oe-overlap {
+    color: #b5781a; font-size: 11px; margin-top: 4px;
+    background: #fff3dc; border: 1px solid #e0c98a; border-radius: 3px;
+    padding: 3px 6px;
+  }
   .outlook-empty {
     padding: 30px; text-align: center; color: #a89a84;
     font-size: 13px; font-style: italic;
@@ -2054,8 +2059,8 @@
     <div id="outlook-preview" style="margin-top: 14px;"></div>
 
     <div class="modal-actions">
-      <button id="outlook-import-btn" class="primary" hidden>선택한 일정 가져오기</button>
-      <button id="outlook-cancel-btn">닫기</button>
+      <button id="outlook-import-btn" type="button" class="primary" hidden>선택한 일정 가져오기</button>
+      <button id="outlook-cancel-btn" type="button" onclick="closeOutlookModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -2705,9 +2710,24 @@ function renderOutlookPreview() {
     if (already) reasons.push('이미 가져옴');
     if (!startTime || !endTime) reasons.push('시간 정보 없음');
     const disabled = reasons.length > 0;
+    // 기존 planned 일정과 시간 겹침 감지 (제목이 달라도 같은 시간대면 중복일 가능성)
+    // 되풀이로 등록한 일정 + Outlook 일정이 겹치는 사례 방지 — 체크 기본 해제 + 경고 (필요시 직접 체크)
+    let overlapWith = null;
+    if (!disabled && dateStr && startTime && endTime) {
+      const ns = timeStrToMinutes(startTime), ne = timeStrToMinutes(endTime);
+      const dayData = getDataForDate(dateStr);
+      const existPlanned = (dayData && Array.isArray(dayData.planned)) ? dayData.planned : [];
+      for (const p of existPlanned) {
+        if (p.outlookEventId && p.outlookEventId === ev.id) continue; // 같은 outlook 원본은 already로 처리됨
+        if (!p.start || !p.end) continue;
+        const ps = timeStrToMinutes(p.start), pe = timeStrToMinutes(p.end);
+        if (ps < ne && pe > ns) { overlapWith = p; break; } // 구간 겹침
+      }
+    }
+    const uncheck = disabled || !!overlapWith;
     return `
       <div class="outlook-event-row${disabled ? ' disabled' : ''}">
-        <input type="checkbox" data-idx="${idx}" ${disabled ? 'disabled' : 'checked'}>
+        <input type="checkbox" data-idx="${idx}" ${disabled ? 'disabled' : ''} ${uncheck ? '' : 'checked'}>
         <div class="oe-main">
           <div class="oe-title">${escapeHtml(ev.subject || '(제목 없음)')}</div>
           <div class="oe-meta">
@@ -2715,6 +2735,7 @@ function renderOutlookPreview() {
             ${loc ? `<span>📍 ${escapeHtml(loc)}</span>` : ''}
           </div>
           ${reasons.length ? `<div class="oe-skip">${reasons.join(', ')} — 제외됨</div>` : ''}
+          ${overlapWith && !disabled ? `<div class="oe-overlap">⚠️ 같은 시간대에 이미 일정 있음: ${escapeHtml(overlapWith.start)}~${escapeHtml(overlapWith.end)} ${escapeHtml(overlapWith.title || '')} — 중복일 수 있어 체크 해제됨 (가져오려면 직접 체크)</div>` : ''}
         </div>
       </div>
     `;
@@ -2727,7 +2748,6 @@ function outlookImportSelected() {
   const checkboxes = document.querySelectorAll('#outlook-preview input[type="checkbox"]:checked');
   if (checkboxes.length === 0) { showToast('가져올 일정을 선택하세요'); return; }
   const importedIds = getOutlookImportedIds();
-  const importColor = '#d8e3ec'; // 스카이 — Outlook 가져온 일정 표시
   let count = 0;
   // 날짜별로 그룹핑 (한 날짜 데이터 한 번만 read/write)
   const byDate = {};
@@ -2747,7 +2767,7 @@ function outlookImportSelected() {
       title: ev.subject || '(제목 없음)',
       start: startTime,
       end: endTime,
-      color: importColor,
+      color: null, // 아래에서 자동 분배
       outlookEventId: ev.id,
     });
     importedIds.add(ev.id);
@@ -2757,9 +2777,20 @@ function outlookImportSelected() {
     const data = getDataForDate(dateKey);
     if (!Array.isArray(data.planned)) data.planned = [];
     if (!Array.isArray(data.todos)) data.todos = [];
-    data.planned.push(...newEvents);
+    // 시간 순으로 정렬 후 각 일정마다 위·아래 인접 회피하는 중립 색 자동 부여
+    // 누적 events 배열에 push해가며 다음 일정이 직전 일정을 회피하도록
+    const accumulated = [...data.planned];
+    const sortedNew = [...newEvents].sort((a, b) =>
+      timeStrToMinutes(a.start) - timeStrToMinutes(b.start)
+    );
+    sortedNew.forEach(ev => {
+      const startMin = timeStrToMinutes(ev.start);
+      ev.color = getDefaultColor('planned', startMin, accumulated);
+      accumulated.push(ev);
+    });
+    data.planned.push(...sortedNew);
     // 각 신규 일정마다 To do list에도 자동 등록 (saveEvent의 planned 동기화 패턴 동일)
-    newEvents.forEach(ev => {
+    sortedNew.forEach(ev => {
       const todoText = `${ev.start} ${ev.title}`;
       if (!data.todos.some(t => t.text === todoText)) {
         data.todos.push({ text: todoText, done: false });
@@ -2888,9 +2919,144 @@ function parseICS(text) {
       case 'UID': cur.uid = value; break;
       case 'LOCATION': cur.location = unescapeIcs(value); break;
       case 'STATUS': cur.status = value; break;
+      case 'RRULE': cur.rrule = value; break;
+      case 'EXDATE':
+        if (!cur.exdates) cur.exdates = [];
+        // EXDATE는 콤마 구분 다중 값 가능
+        value.split(',').forEach(v => cur.exdates.push(v.trim()));
+        break;
     }
   }
   return events;
+}
+
+// RRULE 문자열 파싱 — { FREQ, INTERVAL, BYDAY: [...], UNTIL, COUNT }
+function parseRRule(rruleStr) {
+  const out = { INTERVAL: 1 };
+  rruleStr.split(';').forEach(p => {
+    const eq = p.indexOf('=');
+    if (eq < 0) return;
+    const k = p.slice(0, eq);
+    const v = p.slice(eq + 1);
+    if (k === 'BYDAY') out.BYDAY = v.split(',');
+    else if (k === 'INTERVAL' || k === 'COUNT') out[k] = parseInt(v);
+    else out[k] = v;
+  });
+  return out;
+}
+
+// 단일 RRULE 이벤트를 [startStr, endStr] 범위로 expand하여 인스턴스 배열 반환
+// 반복 없는 이벤트면 단일 인스턴스 1개. WEEKLY/DAILY 지원, MONTHLY/YEARLY는 첫 인스턴스만 (안전한 fallback)
+function expandIcsEvent(rawEv, startStr, endStr) {
+  const base = icsEventToNormalized(rawEv);
+  if (!base) return [];
+  if (!rawEv.rrule) return [base];
+
+  const rrule = parseRRule(rawEv.rrule);
+  // 'YYYY-MM-DDTHH:MM:00' 문자열 → Date (로컬 해석)
+  const baseStart = new Date(base.start.dateTime.replace(/:00$/, ':00'));
+  const baseEnd = new Date(base.end.dateTime.replace(/:00$/, ':00'));
+  const duration = baseEnd - baseStart;
+  const rangeStart = new Date(startStr + 'T00:00:00');
+  const rangeEnd = new Date(endStr + 'T23:59:59');
+
+  // UNTIL 파싱 (YYYYMMDD 또는 YYYYMMDDTHHMMSSZ)
+  let until = null;
+  if (rrule.UNTIL) {
+    const m = rrule.UNTIL.match(/^(\d{4})(\d{2})(\d{2})(T(\d{2})(\d{2})(\d{2})Z?)?$/);
+    if (m) {
+      if (rrule.UNTIL.endsWith('Z')) {
+        until = new Date(Date.UTC(+m[1], +m[2]-1, +m[3], +(m[5]||0), +(m[6]||0), +(m[7]||0)));
+      } else {
+        until = new Date(+m[1], +m[2]-1, +m[3], +(m[5]||0), +(m[6]||0), +(m[7]||0));
+      }
+    }
+  }
+
+  // EXDATE → Set (key: 'YYYY-MM-DD' 또는 'YYYY-MM-DDTHH:MM')
+  const exdates = new Set();
+  (rawEv.exdates || []).forEach(raw => {
+    const p = parseIcsDateTime(raw, null);
+    if (p) {
+      exdates.add(p.date);
+      if (p.time) exdates.add(p.date + 'T' + p.time);
+    }
+  });
+
+  const wkMap = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 };
+  const instances = [];
+  const MAX = 500; // 무한 루프 방지
+
+  function isExcluded(dt) {
+    const k1 = formatDateKey(dt);
+    const k2 = k1 + 'T' + _pad2(dt.getHours()) + ':' + _pad2(dt.getMinutes());
+    return exdates.has(k1) || exdates.has(k2);
+  }
+  function push(dt) {
+    if (until && dt > until) return false;
+    if (isExcluded(dt)) return true; // EXDATE 제외 — count는 진행
+    if (dt > rangeEnd) return false;
+    if (dt < rangeStart) return true; // 범위 이전이면 skip하지만 더 진행
+    const eDt = new Date(dt.getTime() + duration);
+    instances.push({
+      id: (rawEv.uid || rawEv.summary || '') + '@' + dt.toISOString(),
+      subject: rawEv.summary || '(제목 없음)',
+      start: { dateTime: localIsoStr(dt) },
+      end: { dateTime: localIsoStr(eDt) },
+      location: { displayName: rawEv.location || '' },
+      isAllDay: rawEv.isAllDay || false,
+    });
+    return true;
+  }
+
+  if (rrule.FREQ === 'WEEKLY') {
+    const interval = rrule.INTERVAL || 1;
+    // BYDAY 없으면 base 요일 사용
+    const baseDay = baseStart.getDay();
+    const days = (rrule.BYDAY ? rrule.BYDAY.map(d => wkMap[d.replace(/^-?\d+/, '')]) : [baseDay])
+      .filter(d => d != null).sort((a,b) => a-b);
+    // cursor: baseStart가 속한 주의 일요일(Day 0)
+    const cursor = new Date(baseStart);
+    cursor.setDate(baseStart.getDate() - baseStart.getDay());
+    cursor.setHours(0, 0, 0, 0);
+    let cnt = 0;
+    let cycle = 0;
+    while (cnt < MAX) {
+      let stillInWindow = false;
+      for (const dayIdx of days) {
+        const inst = new Date(cursor);
+        inst.setDate(cursor.getDate() + dayIdx);
+        inst.setHours(baseStart.getHours(), baseStart.getMinutes(), 0, 0);
+        if (inst < baseStart) continue; // DTSTART 이전 skip
+        if (rrule.COUNT != null && instances.length >= rrule.COUNT) break;
+        const cont = push(inst);
+        if (cont) stillInWindow = true;
+      }
+      if (!stillInWindow) break;
+      if (rrule.COUNT != null && instances.length >= rrule.COUNT) break;
+      cursor.setDate(cursor.getDate() + 7 * interval);
+      cnt++;
+      cycle++;
+    }
+  } else if (rrule.FREQ === 'DAILY') {
+    const interval = rrule.INTERVAL || 1;
+    let cursor = new Date(baseStart);
+    let cnt = 0;
+    while (cnt < MAX) {
+      if (rrule.COUNT != null && instances.length >= rrule.COUNT) break;
+      const cont = push(new Date(cursor));
+      if (!cont && cursor > rangeEnd) break;
+      cursor.setDate(cursor.getDate() + interval);
+      cnt++;
+    }
+  } else {
+    // MONTHLY/YEARLY 또는 미지원 FREQ — 안전한 fallback: 단일 인스턴스만
+    return [base];
+  }
+  return instances;
+}
+function localIsoStr(d) {
+  return `${formatDateKey(d)}T${_pad2(d.getHours())}:${_pad2(d.getMinutes())}:00`;
 }
 function unescapeIcs(s) {
   return String(s).replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
@@ -2941,7 +3107,13 @@ function icsRenderFromText(text, startStr, endStr) {
     preview.innerHTML = '<div class="outlook-empty" style="color:#b04040;">받은 응답이 ICS 형식이 아닙니다.</div>';
     return;
   }
-  const allEvents = parseICS(text).map(icsEventToNormalized).filter(Boolean);
+  // 각 VEVENT를 RRULE expansion하여 인스턴스 단위 array로 펼침
+  const rawEvents = parseICS(text);
+  const allEvents = [];
+  rawEvents.forEach(raw => {
+    const expanded = expandIcsEvent(raw, startStr, endStr);
+    expanded.forEach(e => allEvents.push(e));
+  });
   const inRange = allEvents.filter(e => {
     const d = e.start.dateTime.slice(0, 10);
     return d >= startStr && d <= endStr;
@@ -4878,9 +5050,10 @@ function initColumnResizers() {
   });
 }
 
-function getDefaultColor(type, clickMin) {
-  const data = getCurrentData();
-  const events = data[type] || [];
+function getDefaultColor(type, clickMin, eventsOverride) {
+  // eventsOverride: 다른 날짜의 events 배열을 직접 넘길 때 사용 (예: Outlook 일괄 import)
+  // 미지정 시 현재 보는 날짜의 events 사용 (기본 동작 그대로)
+  const events = eventsOverride || ((getCurrentData()[type]) || []);
 
   if (type === 'actual') {
     // 실제 실행은 기본 초록 (계획대로)
@@ -6621,7 +6794,7 @@ function renderEvents(type) {
 
     div.innerHTML = `
       <button class="del-x">×</button>
-      <span class="time">${ev.start}~${ev.end}</span><span class="title">${(typeof findRelatedIdeas==='function' && findRelatedIdeas({title:ev.title}).length>0) ? '<span class="has-idea-prefix" title="관련 아이디어 있음">💡</span>' : ''}${escapeHtml(ev.title || '(제목 없음)')}</span>
+      <span class="time">${ev.start}~${ev.end}</span><span class="title">${(typeof findRelatedIdeas==='function' && findRelatedIdeas(ev).length>0) ? '<span class="has-idea-prefix" title="관련 아이디어 있음">💡</span>' : ''}${escapeHtml(ev.title || '(제목 없음)')}</span>
     `;
     div.querySelector('.del-x').addEventListener('click', (e) => {
       e.stopPropagation();
