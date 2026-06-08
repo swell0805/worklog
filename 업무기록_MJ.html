@@ -364,6 +364,18 @@
   .week-task:hover .del-x { opacity: 1; }
   .week-col.drag-over { background: #f0e6d0; }
   .week-empty { color: #a89a84; font-size: 11px; text-align: center; padding: 12px 4px; font-style: italic; }
+  /* 주간업무 모달 — 일과계획 통합 표시 (longterm 아래에 별도 섹션) */
+  .week-planned-section { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #d4c5ae; }
+  .week-planned-divider { font-size: 10px; color: #8c6d4f; margin-bottom: 4px; font-weight: 600; letter-spacing: 0.5px; }
+  .week-planned-chip {
+    background: #fdfaf3; border: 1px solid #d4c5ae; border-radius: 3px;
+    padding: 3px 6px; font-size: 11px; margin-bottom: 3px;
+    cursor: pointer; display: flex; gap: 4px; color: #5c4a38;
+    transition: background 0.1s;
+  }
+  .week-planned-chip:hover { background: #f5ead2; }
+  .week-planned-chip .wpc-time { font-weight: 600; color: #8c6d4f; flex-shrink: 0; }
+  .week-planned-chip .wpc-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* 업무 속성 태그 (카테고리, 담당자, 중요도) */
   .task-meta { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
@@ -539,6 +551,12 @@
   }
   .event.event-done .title { color: #6e6e6e; font-weight: 400; }
   .event.event-done .time { color: #7a7a7a; background: rgba(255,255,255,0.45); }
+  .event.event-cancelled {
+    border-left: 3px solid #a08c70;
+    opacity: 0.7;
+  }
+  .event.event-cancelled .title { color: #6e5e4e; font-weight: 400; text-decoration: line-through; text-decoration-color: rgba(110,94,78,0.5); }
+  .event.event-cancelled .time { color: #8a7a64; background: rgba(255,255,255,0.5); }
 
   .color-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; align-items: flex-start; }
   .color-divider { width: 1px; height: 24px; background: #d4c5ae; align-self: flex-start; margin-top: 4px; }
@@ -1500,6 +1518,7 @@
         <span>일과 계획</span>
         <span class="legend">
           <span class="legend-item"><span class="legend-dot missed" style="background:#f5b8b8"></span>미수행</span>
+          <span class="legend-item"><span class="legend-dot" style="background:#d4c8bf"></span>취소</span>
           <span class="legend-item"><span class="legend-dot" style="background:#e8e8e8"></span>완료</span>
           <span class="legend-item"><span class="legend-dot" style="background:#d9d9d9"></span>식사/휴식</span>
         </span>
@@ -2233,6 +2252,7 @@ const COLORS = [
   { name: '주황 — 지연', bg: '#f5b576', special: 'overrun' },
   { name: '파랑 — 계획 외', bg: '#9ec1de', special: 'unplanned' },
   { name: '회색 — 식사/휴식', bg: '#d9d9d9', special: 'break' },
+  { name: '베이지 — 취소', bg: '#d4c8bf', special: 'cancelled' },
   { name: '회색 — 완료', bg: '#e8e8e8', special: 'done' },
 ];
 
@@ -4100,10 +4120,17 @@ function cleanupRecurringInstancesDaily(recurringId, modifyFields, options) {
           }
         });
       } else {
-        // 모두 삭제
+        // 모두 삭제 — planned + 매칭 todo도 동기 삭제
+        const removed = data.planned.filter(e => e.recurringId === recurringId);
         const before = data.planned.length;
         data.planned = data.planned.filter(e => e.recurringId !== recurringId);
-        if (data.planned.length !== before) changed = true;
+        if (data.planned.length !== before) {
+          changed = true;
+          if (Array.isArray(data.todos) && removed.length > 0) {
+            const toRemoveTexts = new Set(removed.map(e => `${e.start} ${e.title}`));
+            data.todos = data.todos.filter(t => !toRemoveTexts.has(t.text));
+          }
+        }
       }
       if (changed) localStorage.setItem(key, JSON.stringify(data));
     } catch(e) {}
@@ -4546,15 +4573,49 @@ function renderWeekly() {
     const body = document.createElement('div');
     body.className = 'week-col-body';
     const dayTasks = allTasks.filter(t => t.targetDate === dKey);
-    if (dayTasks.length === 0) {
+    // 일과계획 일정도 함께 표시 (통합 뷰) — 식사/휴식/완료/취소는 제외 (의미 있는 업무만)
+    const dayData = getDataForDate(dKey);
+    const dayPlanned = (dayData && Array.isArray(dayData.planned)) ? dayData.planned.filter(ev => {
+      const meta = COLORS.find(c => c.bg === ev.color);
+      if (!meta || !meta.special) return true; // 중립 색 (일반 업무) → 표시
+      return meta.special === 'missed' || meta.special === 'matched' || meta.special === 'overrun' || meta.special === 'unplanned';
+    }) : [];
+    if (dayTasks.length === 0 && dayPlanned.length === 0) {
       body.innerHTML = '<div class="week-empty">업무 없음</div>';
     } else {
-      // 정렬: overdue → pending → done
-      dayTasks.sort((a,b) => {
-        const order = { overdue: 0, pending: 1, done: 2 };
-        return order[getTaskStatus(a)] - order[getTaskStatus(b)];
-      });
-      dayTasks.forEach(task => body.appendChild(createWeekTaskCard(task)));
+      // 1) 주간업무 카드 먼저 (있으면)
+      if (dayTasks.length > 0) {
+        dayTasks.sort((a,b) => {
+          const order = { overdue: 0, pending: 1, done: 2 };
+          return order[getTaskStatus(a)] - order[getTaskStatus(b)];
+        });
+        dayTasks.forEach(task => body.appendChild(createWeekTaskCard(task)));
+      }
+      // 2) 일과계획 일정 chip (있으면)
+      if (dayPlanned.length > 0) {
+        dayPlanned.sort((a, b) => timeStrToMinutes(a.start) - timeStrToMinutes(b.start));
+        const section = document.createElement('div');
+        section.className = 'week-planned-section';
+        if (dayTasks.length > 0) {
+          section.innerHTML = '<div class="week-planned-divider">— 일과계획 —</div>';
+        }
+        dayPlanned.forEach(ev => {
+          const chip = document.createElement('div');
+          chip.className = 'week-planned-chip';
+          const hasIdea = (typeof findRelatedIdeas === 'function' && findRelatedIdeas(ev).length > 0) ? '💡 ' : '';
+          chip.innerHTML = `<span class="wpc-time">${escapeHtml(ev.start)}</span><span class="wpc-title">${hasIdea}${escapeHtml(ev.title || '(제목 없음)')}</span>`;
+          // 클릭 → 그 날짜로 이동 + 일과계획 편집 모달
+          chip.addEventListener('click', () => {
+            closeWeeklyModal();
+            currentDate = new Date(dKey + 'T00:00:00');
+            renderAll();
+            const fresh = (getDataForDate(dKey).planned || []).find(e => e.id === ev.id);
+            if (fresh) openEventModal('planned', fresh);
+          });
+          section.appendChild(chip);
+        });
+        body.appendChild(section);
+      }
     }
     col.appendChild(body);
 
@@ -6365,8 +6426,23 @@ function renderTodos() {
     }
     delBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      updateCurrentData(d => { d.todos.splice(idx, 1); });
+      updateCurrentData(d => {
+        const removed = d.todos[idx];
+        d.todos.splice(idx, 1);
+        // 시간 prefix가 있는 todo는 매칭 planned 이벤트도 함께 삭제 (양방향 sync)
+        if (removed && removed.text) {
+          const m = removed.text.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
+          if (m) {
+            const time = m[1].length === 4 ? '0' + m[1] : m[1];
+            const title = m[2];
+            d.planned = (d.planned || []).filter(e =>
+              !((e.start === time || e.start === m[1]) && e.title === title)
+            );
+          }
+        }
+      });
       renderTodos();
+      renderEvents('planned');
     });
     list.appendChild(div);
   });
@@ -6422,8 +6498,23 @@ function _createTodoEmptySlot() {
         renderEvents('planned');
       });
       delBtn.addEventListener('click', () => {
-        updateCurrentData(d => { d.todos.splice(savedIdx, 1); });
+        updateCurrentData(d => {
+          const removed = d.todos[savedIdx];
+          d.todos.splice(savedIdx, 1);
+          // 시간 prefix가 있는 todo는 매칭 planned 이벤트도 함께 삭제 (양방향 sync)
+          if (removed && removed.text) {
+            const m = removed.text.match(/^(\d{1,2}:\d{2})\s+(.+)$/);
+            if (m) {
+              const time = m[1].length === 4 ? '0' + m[1] : m[1];
+              const title = m[2];
+              d.planned = (d.planned || []).filter(e =>
+                !((e.start === time || e.start === m[1]) && e.title === title)
+              );
+            }
+          }
+        });
         renderTodos();
+        renderEvents('planned');
       });
       // 새 빈 슬롯 추가 (현재 input은 그대로 → IME 안 깨짐)
       document.getElementById('todo-list').appendChild(_createTodoEmptySlot());
@@ -6530,14 +6621,19 @@ function computeMagneticStartMin(dropMin, events, excludeId, gapThreshold) {
   return Math.round(dropMin / SNAP_MIN) * SNAP_MIN;
 }
 
-// 일과계획 → 실제실행 드롭 전용 3단계 스냅:
+// 일과계획 → 실제실행 드롭 전용 스냅 (우선순위 순서):
+//   (b) drop이 일과계획 원본 시작과 ±30분 이내 → 원본 시간 그대로 (최우선 — 사용자 의도 우선)
+//   (0) drop이 다른 일정 안쪽 (그리고 원본과 30분 이상 멀음) → 그 일정 끝에 스냅
 //   (a) 앞 일정이 30분 미만 거리 → 그 끝에 자석 스냅
-//   (b) (a) 아님 + drop 위치가 일과계획 원본 시작과 ±30분 이내 → 원본 시간 그대로 (첫 드래그 시 핵심)
-//   (c) 그 외 (앞 일정 멀거나 없고, 원본과도 멀음) → 30분 그리드 (00 또는 30)
+//   (c) 그 외 → 30분 그리드 (00 또는 30)
 function computePlannedToActualStartMin(dropMin, actualEvents, originalStart) {
   const originalStartMin = timeStrToMinutes(originalStart);
   const candidates = actualEvents || [];
-  // 0) drop이 다른 일정 안쪽 → 그 끝에 붙임 (안전망)
+  // (b) 최우선: 원본 시작과 ±30분 이내면 원본 시간 그대로 — 다른 일정과 겹쳐도 사용자 의도 우선
+  //     이게 (0) 안쪽 스냅보다 먼저 평가되어야 함 — 그렇지 않으면 actual에 비슷한 시간대 일정이 이미 있을 때
+  //     dropMin이 그 일정 안쪽으로 들어가면 한참 아래로 튕겨나가는 문제 발생
+  if (Math.abs(dropMin - originalStartMin) <= 30) return originalStartMin;
+  // (0) drop이 다른 일정 안쪽 → 그 끝에 붙임
   for (const e of candidates) {
     const sMin = timeStrToMinutes(e.start);
     const eMin = timeStrToMinutes(e.end);
@@ -6552,8 +6648,6 @@ function computePlannedToActualStartMin(dropMin, actualEvents, originalStart) {
     const latestEnd = timeStrToMinutes(latest.end);
     if (dropMin - latestEnd < 30) return latestEnd;
   }
-  // (b) 원본 시작과 ±30분 이내 → 원본 시간 그대로
-  if (Math.abs(dropMin - originalStartMin) <= 30) return originalStartMin;
   // (c) 빈 영역 다른 시간대 → 30분 그리드
   return Math.round(dropMin / 30) * 30;
 }
@@ -7923,7 +8017,8 @@ function buildAnalysisPrompt(period, range, days, stats) {
   p += `**상태별 시간 분포 (실제실행 기준)**\n`;
   const stateLabels = {
     matched: '🟢 계획대로', missed: '🔴 미수행', overrun: '🟠 지연',
-    unplanned: '🔵 계획 외', break: '⚪ 식사/휴식', other: '(미분류)',
+    unplanned: '🔵 계획 외', break: '⚪ 식사/휴식', cancelled: '🟤 취소', done: '⏹ 완료',
+    other: '(미분류)',
   };
   Object.entries(stats.colorMins).forEach(([k, v]) => {
     if (v > 0) p += `- ${stateLabels[k]}: ${fmtHM(v)} (${pct(v, stats.totalActualMin)}%, 일평균 ${fmtHM(Math.round(v/wd))})\n`;
