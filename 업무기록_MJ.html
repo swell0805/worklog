@@ -4602,8 +4602,18 @@ function renderWeekly() {
         dayPlanned.forEach(ev => {
           const chip = document.createElement('div');
           chip.className = 'week-planned-chip';
+          chip.draggable = true;
           const hasIdea = (typeof findRelatedIdeas === 'function' && findRelatedIdeas(ev).length > 0) ? '💡 ' : '';
           chip.innerHTML = `<span class="wpc-time">${escapeHtml(ev.start)}</span><span class="wpc-title">${hasIdea}${escapeHtml(ev.title || '(제목 없음)')}</span>`;
+          // 드래그로 다른 요일에 이동 — 시간은 그대로 유지, 날짜만 변경
+          chip.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('application/x-worklog-planned-move', JSON.stringify({
+              fromDate: dKey, eventId: ev.id
+            }));
+            e.dataTransfer.effectAllowed = 'move';
+            chip.classList.add('dragging');
+          });
+          chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
           // 클릭 → 그 날짜로 이동 + 일과계획 편집 모달
           chip.addEventListener('click', () => {
             closeWeeklyModal();
@@ -4628,7 +4638,43 @@ function renderWeekly() {
     col.addEventListener('drop', (e) => {
       e.preventDefault();
       col.classList.remove('drag-over');
+
+      // 1) 일과계획 chip 이동 — 시간 그대로 유지, 날짜만 변경
+      const plannedMoveJson = e.dataTransfer.getData('application/x-worklog-planned-move');
+      if (plannedMoveJson) {
+        try {
+          const { fromDate, eventId } = JSON.parse(plannedMoveJson);
+          if (fromDate === dKey) return; // 같은 날짜는 무시
+          const fromData = getDataForDate(fromDate);
+          const evIdx = (fromData.planned || []).findIndex(x => x.id === eventId);
+          if (evIdx < 0) return;
+          const movedEv = fromData.planned[evIdx];
+          const todoText = `${movedEv.start} ${movedEv.title}`;
+          // 원본 날짜에서 제거 (planned + 매칭 todo)
+          fromData.planned.splice(evIdx, 1);
+          if (Array.isArray(fromData.todos)) {
+            const tIdx = fromData.todos.findIndex(t => t.text === todoText);
+            if (tIdx >= 0) fromData.todos.splice(tIdx, 1);
+          }
+          saveDataForDate(fromDate, fromData);
+          // 목적지 날짜에 추가 (planned + 매칭 todo) — id 유지
+          const toData = getDataForDate(dKey);
+          if (!Array.isArray(toData.planned)) toData.planned = [];
+          if (!Array.isArray(toData.todos)) toData.todos = [];
+          toData.planned.push(movedEv);
+          if (!toData.todos.some(t => t.text === todoText)) {
+            toData.todos.push({ text: todoText, done: false });
+          }
+          saveDataForDate(dKey, toData);
+          renderWeekly();
+          if (typeof renderAll === 'function') renderAll();
+          return;
+        } catch (err) { /* fall through to longterm 처리 */ }
+      }
+
+      // 2) 기존 longterm 카드 이동
       const id = e.dataTransfer.getData('text/plain');
+      if (!id) return;
       const all = getLongTermTasks();
       const i = all.findIndex(t => t.id === id);
       if (i >= 0 && all[i].targetDate !== dKey) {
@@ -6596,7 +6642,8 @@ function _createAchievementEmptySlot() {
 // 2) drop 위쪽에 끝나는 일정이 gapThreshold 분 이내 → 그 end에 스냅
 // 3) 그 외 → 10분 그리드 스냅
 function computeMagneticStartMin(dropMin, events, excludeId, gapThreshold) {
-  if (gapThreshold == null) gapThreshold = 60;
+  // gapThreshold: 위쪽 일정 끝과의 거리가 이 값 "미만"이면 자석 스냅. 기본 30분 (예전 60분은 너무 광범위해서 사용자가 의도한 빈 시간대로 못 놓는 문제).
+  if (gapThreshold == null) gapThreshold = 30;
   const candidates = (events || []).filter(e =>
     excludeId == null || e.id !== excludeId
   );
@@ -6608,14 +6655,14 @@ function computeMagneticStartMin(dropMin, events, excludeId, gapThreshold) {
       return eMin;
     }
   }
-  // 2) 위쪽 일정의 end가 gapThreshold 이내면 스냅
+  // 2) 위쪽 일정의 end가 gapThreshold "미만"이면 스냅 (예전 <=는 정확히 임계 거리도 자석이라 어색)
   const above = candidates.filter(e => timeStrToMinutes(e.end) <= dropMin);
   if (above.length > 0) {
     const latest = above.reduce((p, c) =>
       timeStrToMinutes(c.end) > timeStrToMinutes(p.end) ? c : p
     );
     const latestEnd = timeStrToMinutes(latest.end);
-    if (dropMin - latestEnd <= gapThreshold) return latestEnd;
+    if (dropMin - latestEnd < gapThreshold) return latestEnd;
   }
   // 3) 기본: 10분 그리드 스냅
   return Math.round(dropMin / SNAP_MIN) * SNAP_MIN;
@@ -6705,7 +6752,7 @@ function buildTimelineGrid(containerId, type) {
           pendingTodoSourceForDrop = null;
         }
         const data = getCurrentData();
-        const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], null, 60);
+        const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], null);
         openEventModal(type, null, startMin, startMin + 30, text);
         return;
       }
@@ -6720,7 +6767,7 @@ function buildTimelineGrid(containerId, type) {
 
         // 같은 컬럼 내 이동 (planned→planned 또는 actual→actual): 시간만 변경, duration 유지
         if (type === evData.sourceType && evData.id) {
-          const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], evData.id, 60);
+          const startMin = computeMagneticStartMin(rawDropMin, data[type] || [], evData.id);
           const sMin = Math.max(0, Math.min(startMin, 23 * 60 + 50));
           const duration = timeStrToMinutes(evData.end) - timeStrToMinutes(evData.start);
           const eMin = Math.min(sMin + duration, 23 * 60 + 50);
