@@ -1567,6 +1567,8 @@
     <h2 id="event-modal-title">일정 추가</h2>
     <label>제목</label>
     <input type="text" id="event-title" placeholder="무엇을 하시나요?">
+    <label>날짜</label>
+    <input type="date" id="event-date" style="padding:8px 10px; border:1px solid #d4c5ae; border-radius:4px; background:#fdfaf3; font-size:14px; color:#3a2e24; font-family:inherit; outline:none;">
     <div class="time-row">
       <div>
         <label>시작</label>
@@ -7003,11 +7005,14 @@ function renderNowLine() {
 
 // ============== Event Modal ==============
 function openEventModal(type, ev, defaultStart, defaultEnd, presetTitle) {
-  currentEditingEvent = { type, ev };
+  // originalDate: 모달 열 때 currentDate 캡쳐 — saveEvent에서 날짜 변경 감지에 사용
+  const originalDateKey = formatDateKey(currentDate);
+  currentEditingEvent = { type, ev, originalDateKey };
   const modal = document.getElementById('event-modal');
   modal.classList.add('active');
   document.getElementById('event-modal-title').textContent = ev ? '일정 편집' : '일정 추가';
   document.getElementById('event-title').value = ev ? ev.title : (presetTitle || '');
+  document.getElementById('event-date').value = originalDateKey;
 
   let startStr, endStr;
   if (ev) {
@@ -7144,10 +7149,51 @@ function saveEvent() {
   if (!start || !end) { showToast('시간을 입력하세요'); return; }
   if (timeStrToMinutes(end) <= timeStrToMinutes(start)) { showToast('종료가 시작보다 늦어야 합니다'); return; }
 
-  const { type, ev } = currentEditingEvent;
+  const { type, ev, originalDateKey } = currentEditingEvent;
   const isNew = !ev;
   const recurringChecked = (type === 'planned') && document.getElementById('event-recurring').checked;
   const wasRecurring = !!(ev && ev.recurringId && !ev.recurringDetached);
+
+  // 날짜 변경 처리 (편집 케이스에서만)
+  // 원본 날짜에서 제거 + 매칭 todo 제거 → 새 날짜에 추가 + 매칭 todo 추가 → currentDate 전환
+  // 되풀이 일정의 경우 자동 detach (사용자가 의도적으로 다른 날짜로 옮긴 것이므로 패턴과 분리)
+  const newDateKey = document.getElementById('event-date').value || originalDateKey;
+  if (ev && originalDateKey && newDateKey && newDateKey !== originalDateKey) {
+    // 1) 원본 날짜에서 제거
+    const originalData = getDataForDate(originalDateKey);
+    if (Array.isArray(originalData[type])) {
+      const i = originalData[type].findIndex(x => x.id === ev.id);
+      if (i >= 0) originalData[type].splice(i, 1);
+    }
+    if (type === 'planned' && Array.isArray(originalData.todos)) {
+      const oldTodoText = `${ev.start} ${ev.title}`;
+      const tIdx = originalData.todos.findIndex(t => t.text === oldTodoText);
+      if (tIdx >= 0) originalData.todos.splice(tIdx, 1);
+    }
+    saveDataForDate(originalDateKey, originalData);
+    // 2) 새 날짜에 추가 (수정된 필드 적용, id 유지)
+    const newData = getDataForDate(newDateKey);
+    if (!Array.isArray(newData[type])) newData[type] = [];
+    if (!Array.isArray(newData.todos)) newData.todos = [];
+    const updatedEv = { ...ev, title, start, end, color: selectedColor };
+    if (updatedEv.recurringId) updatedEv.recurringDetached = true; // 되풀이는 자동 detach
+    newData[type].push(updatedEv);
+    if (type === 'planned') {
+      const newTodoText = `${start} ${title}`;
+      const colorMeta = COLORS.find(c => c.bg === selectedColor);
+      const isDone = colorMeta && colorMeta.special === 'done';
+      if (!newData.todos.some(t => t.text === newTodoText)) {
+        newData.todos.push({ text: newTodoText, done: isDone });
+      }
+    }
+    saveDataForDate(newDateKey, newData);
+    // 3) currentDate를 새 날짜로 전환 + 전체 렌더
+    currentDate = new Date(newDateKey + 'T00:00:00');
+    renderAll();
+    closeEventModal();
+    showToast(`${newDateKey}로 이동됨`);
+    return;
+  }
 
   // 패턴 읽기 (체크된 경우만)
   let newPattern = null;
@@ -7348,14 +7394,21 @@ function buildImportPrompt() {
   const monday = currentWeekStart || getMondayOf(new Date());
   const friday = addDays(monday, 4);
   const weekRange = `${formatDateKey(monday).replaceAll('-','.')} ~ ${formatDateKey(friday).replaceAll('-','.')}`;
+  const weekInfo = (typeof getWeekLabelInfo === 'function') ? getWeekLabelInfo(monday) : null;
+  const weekLabel = weekInfo ? `${weekInfo.year}년 ${weekInfo.month}월 ${weekInfo.weekNum}주차` : weekRange;
+  const basePath = `D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ`;
+  const matFolder = `${basePath}\\주간업무자료`;
+  const minutesFolder = `${basePath}\\회의기록`;
   const categoryList = settings.categories.length > 0
     ? settings.categories.map(c => `"${c}"`).join(', ')
     : '(아직 등록된 카테고리 없음)';
 
-  let p = `# 주간업무 자료 분석 → 업무 리스트 추출\n\n`;
+  let p = `# 주간업무 자료 분석 → 업무 리스트 추출 + 정리 파일 생성\n\n`;
   p += `## 작업 요청\n`;
-  p += `다음 폴더 안의 모든 파일(.pptx, .docx, .pdf 등)을 읽고 **${weekRange} 주간에 수행할 업무 리스트**를 추출해주세요.\n\n`;
-  p += `**대상 폴더**: \`D:\\브이픽스메디칼\\VPIX 임상전략 - 문서\\80-89 AX (AI Transformation) Project\\06. 일과정리_MJ\\주간업무자료\\\`\n\n`;
+  p += `다음 두 폴더의 자료를 읽고 **${weekRange} (${weekLabel})** 주간 업무를 정리해주세요.\n\n`;
+  p += `**입력 자료 (read)**:\n`;
+  p += `- \`${matFolder}\\\` — 주간업무보고 자료 (.pptx, .docx, .pdf 등)\n`;
+  p += `- \`${minutesFolder}\\\` — 이번 주 범위 내 회의 녹취록 (.docx / .txt)\n\n`;
   p += `## 추출 기준\n`;
   p += `- 각 업무는 **하나의 항목**으로 분리 (큰 프로젝트는 단계별로 쪼개기)\n`;
   p += `- 너무 큰 단위(예: "특이도 향상 전략 전체") 또는 너무 작은 단위(예: "메일 답장")는 피하고, **30분~3시간 일과 단위**로 추출\n`;
@@ -7375,8 +7428,27 @@ function buildImportPrompt() {
   p += `- **targetDate**: 목표일이 명시된 경우 \`YYYY-MM-DD\` 형식 (이번 주 범위 내면 그 요일 컬럼에 자동 배치)\n`;
   p += `- **importance**: "최상" / "상" / "중" / "하" 중 하나 (명시된 경우)\n`;
   p += `- **urgent**: true (시급한 업무)\n\n`;
-  p += `## 출력 형식 (이대로만 출력)\n\n`;
-  p += `다른 설명 없이 **JSON만** 출력하세요. 코드블록(\`\`\`json...\`\`\`) 으로 감싸서:\n\n`;
+  p += `## 산출물 — 파일 4개 생성 + JSON 응답\n\n`;
+  p += `### 📁 저장할 파일 (모두 \`${matFolder}\\\` 안에)\n\n`;
+  p += `1. **주간업무보고자료 정리**\n`;
+  p += `   - 경로: \`${matFolder}\\${weekLabel} - 주간업무보고자료 정리.md\`\n`;
+  p += `   - 내용: \`주간업무자료/\` 폴더 안 .pptx/.docx/.pdf 등 원본 자료의 핵심 내용을 마크다운으로 통합 정리\n`;
+  p += `   - 구조: **프로젝트/카테고리별 섹션** → 각 섹션 안에 핵심 메시지·진행 상황·이슈·결정사항·계획. 가능하면 원본 출처(파일명, 슬라이드 번호) 표시\n\n`;
+  p += `2. **회의녹취록 정리**\n`;
+  p += `   - 경로: \`${matFolder}\\${weekLabel} - 회의녹취록 정리.md\`\n`;
+  p += `   - 원본: \`${minutesFolder}\\\` 폴더 안 이번 주 회의 녹취록 파일\n`;
+  p += `   - 내용: 발화 내용을 **회의별 / 주제별로 정리** (시간 순). 잡담·noise 제외, 핵심 발언 위주. 발화자 식별 가능하면 표시\n`;
+  p += `   - 회의별 헤더: 일시 / 참석자 / 주제\n\n`;
+  p += `3. **회의록 (Meeting Minutes)**\n`;
+  p += `   - 경로: \`${matFolder}\\${weekLabel} - 회의록.md\`\n`;
+  p += `   - 내용: 위 녹취록을 기반으로 **구조화된 공식 회의록**\n`;
+  p += `   - 회의별 구조: **일시·참석자·안건 / 주요 논의 / 결정사항 / 액션 아이템 (담당자·기한 명시)**\n\n`;
+  p += `4. **업무 추출 리스트**\n`;
+  p += `   - 경로: \`${matFolder}\\${weekLabel} - 업무 리스트.md\`\n`;
+  p += `   - 내용: 아래 JSON에서 추출한 tasks를 **마크다운 체크리스트**로 변환\n`;
+  p += `   - 구조: 카테고리별 그룹 → 각 항목에 \`- [ ] 제목 — 담당자 / 중요도 / 목표일 / ⚡시급\` 형식. 추출 근거(원본 자료/회의록)도 짧게 한 줄 인용\n\n`;
+  p += `### 📋 JSON 응답 (별도, 응답에 직접 출력)\n\n`;
+  p += `위 4개 파일을 저장한 후, **응답에 다음 JSON을 코드블록으로 출력**해주세요. (사용자가 textarea에 paste하여 업무 리스트로 일괄 등록):\n\n`;
   p += '```json\n';
   p += `{\n`;
   p += `  "tasks": [\n`;
@@ -7385,7 +7457,12 @@ function buildImportPrompt() {
   p += `  ]\n`;
   p += `}\n`;
   p += '```\n\n';
-  p += `(저장 또는 파일 작성 없이 응답으로만 JSON 출력)\n`;
+  p += `### 처리 절차\n`;
+  p += `1. \`${matFolder}\\\` 폴더가 없으면 먼저 생성 (있으면 그대로 사용)\n`;
+  p += `2. 위 4개 파일을 각 경로에 저장 (같은 이름 파일 있으면 덮어쓰기)\n`;
+  p += `3. 응답에 JSON 코드블록 출력 (위 형식 그대로)\n`;
+  p += `4. 4번 파일(업무 리스트.md)의 항목 수와 JSON tasks의 항목 수가 **일치해야 함** (모두 같은 추출 결과)\n`;
+  p += `5. 모든 저장 완료 후 사용자에게 어떤 파일이 생성되었는지 짧게 요약 답변\n`;
 
   return p;
 }
