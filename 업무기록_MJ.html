@@ -4472,6 +4472,31 @@ function renderWeekly() {
   renderImportanceFilterChips();
   renderUrgentFilterChips();
 
+  // ===== 정렬 헬퍼 =====
+  // 1순위: 내(self) 업무 먼저 → 팀원 업무
+  // 2순위: 팀원이면 담당자 이름 가나다순 (한국어 localeCompare)
+  // 3순위: 카테고리 순서 (settings.categories의 index — 필터 칩 순서와 동일). 등록 안 된 카테고리는 맨 뒤
+  const sortSettings = getSettings();
+  const sortCatIdx = {};
+  (sortSettings.categories || []).forEach((c, i) => { sortCatIdx[c] = i; });
+  const sortSelf = (typeof getSelfName === 'function') ? getSelfName() : '정민재';
+  function sortLongtermTasks(a, b) {
+    const aMine = (typeof isMyTask === 'function') ? isMyTask(a) : true;
+    const bMine = (typeof isMyTask === 'function') ? isMyTask(b) : true;
+    if (aMine !== bMine) return aMine ? -1 : 1;
+    // 둘 다 팀원이면 담당자 이름 순 (self 제외한 첫 담당자 또는 첫 담당자)
+    if (!aMine) {
+      const aA = (a.assignees || []).filter(x => x !== sortSelf)[0] || (a.assignees || [])[0] || '';
+      const bA = (b.assignees || []).filter(x => x !== sortSelf)[0] || (b.assignees || [])[0] || '';
+      const cmp = String(aA).localeCompare(String(bA), 'ko');
+      if (cmp !== 0) return cmp;
+    }
+    // 카테고리 순서
+    const aC = sortCatIdx[a.category] != null ? sortCatIdx[a.category] : 999;
+    const bC = sortCatIdx[b.category] != null ? sortCatIdx[b.category] : 999;
+    return aC - bC;
+  }
+
   const grid = document.getElementById('weekly-grid');
   grid.innerHTML = '';
   const days = getWeekDays(monday);
@@ -4511,10 +4536,7 @@ function renderWeekly() {
   if (bucketTasks.length === 0) {
     bucketBody.innerHTML = '<div class="week-empty">미배정 업무 없음<br><span style="font-size:10px;opacity:0.7;">+ 추가 또는 일자 카드를 끌어오기</span></div>';
   } else {
-    bucketTasks.sort((a, b) => {
-      const order = { overdue: 0, pending: 1, done: 2 };
-      return order[getTaskStatus(a)] - order[getTaskStatus(b)];
-    });
+    bucketTasks.sort(sortLongtermTasks);
     bucketTasks.forEach(task => bucketBody.appendChild(createWeekTaskCard(task)));
   }
   bucketCol.appendChild(bucketBody);
@@ -4587,10 +4609,7 @@ function renderWeekly() {
     } else {
       // 1) 주간업무 카드 먼저 (있으면)
       if (dayTasks.length > 0) {
-        dayTasks.sort((a,b) => {
-          const order = { overdue: 0, pending: 1, done: 2 };
-          return order[getTaskStatus(a)] - order[getTaskStatus(b)];
-        });
+        dayTasks.sort(sortLongtermTasks);
         dayTasks.forEach(task => body.appendChild(createWeekTaskCard(task)));
       }
       // 2) 일과계획 일정 chip (있으면)
