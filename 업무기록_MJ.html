@@ -1500,6 +1500,7 @@
     <button class="action-btn idea-btn" id="ideas-btn">💡 아이디어</button>
     <button class="action-btn" id="recurring-btn">🔁 되풀이 목록</button>
     <button class="action-btn" id="sync-btn">☁ 동기화<span class="sync-badge" id="sync-badge"></span></button>
+    <button class="action-btn" id="ai-export-btn">🤖 AI 분석용 내보내기</button>
     <button class="action-btn primary" id="summary-btn">📝 업무 정리</button>
   </div>
 </header>
@@ -1759,6 +1760,26 @@
       </div>
     </div>
     <div class="weekly-grid" id="weekly-grid"></div>
+  </div>
+</div>
+
+<!-- AI Export Modal -->
+<div class="modal-backdrop" id="ai-export-modal">
+  <div class="modal" style="width: 520px;">
+    <h2>🤖 AI 분석용 내보내기</h2>
+    <p style="font-size:12px;color:#6b5c4a;line-height:1.6;">
+      업무기록 데이터를 Hermes가 읽을 수 있도록 JSON으로 저장합니다.<br>
+      저장 위치는 선택한 작업 폴더 안의 <code>AI_업무기록_export</code> 폴더입니다.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+      <button class="primary" id="ai-export-today">금일 기록 저장</button>
+      <button id="ai-export-7days">최근 7일 기록 저장</button>
+      <button id="ai-export-all">전체 기록 저장</button>
+    </div>
+    <div id="ai-export-info" style="margin-top:12px;font-size:12px;color:#6b5c4a;line-height:1.5;min-height:18px;"></div>
+    <div class="modal-actions">
+      <button id="ai-export-cancel">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -2452,6 +2473,109 @@ function applySyncData(data) {
   toRemove.forEach(k => localStorage.removeItem(k));
   // 새 데이터 적용
   Object.entries(data || {}).forEach(([k, v]) => localStorage.setItem(k, v));
+}
+
+// ============== AI 분석용 내보내기 ==============
+const AI_EXPORT_DIR = 'AI_업무기록_export';
+
+function parseWorklogValue(key, value) {
+  try { return JSON.parse(value); }
+  catch (e) { return value; }
+}
+
+function collectAiExportData(scope) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  let startKey = null;
+  let endKey = null;
+  if (scope === 'today') {
+    startKey = formatDateKey(today);
+    endKey = startKey;
+  } else if (scope === '7days') {
+    startKey = formatDateKey(addDays(today, -6));
+    endKey = formatDateKey(today);
+  }
+
+  const daily = {};
+  const other = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key || !key.startsWith('worklog-')) continue;
+    if (SYNC_KEYS_EXCLUDE.includes(key) || key.startsWith('screenshot-count-')) continue;
+    const m = key.match(/^worklog-(\d{4}-\d{2}-\d{2})$/);
+    const parsed = parseWorklogValue(key, localStorage.getItem(key));
+    if (m) {
+      const dateKey = m[1];
+      if ((!startKey || dateKey >= startKey) && (!endKey || dateKey <= endKey)) daily[dateKey] = parsed;
+    } else {
+      other[key] = parsed;
+    }
+  }
+
+  return {
+    meta: {
+      exportType: 'ai-work-context',
+      scope,
+      exportedAt: new Date().toISOString(),
+      dateRange: { start: startKey, end: endKey },
+      source: location.href,
+      note: 'Hermes 업무이해 업데이트용 JSON. localStorage의 업무기록 데이터를 기간별로 추출함.'
+    },
+    summary: {
+      dailyCount: Object.keys(daily).length,
+      includedKeys: Object.keys(other).sort(),
+    },
+    daily,
+    longterm: other['worklog-longterm'] || [],
+    delayed: other['worklog-delayed'] || [],
+    recurring: other['worklog-recurring'] || {},
+    recurringSkipped: other['worklog-recurring-skipped'] || {},
+    ideas: other['worklog-ideas'] || [],
+    settings: other['worklog-settings'] || {},
+    rawOther: other,
+  };
+}
+
+function aiExportFileName(scope) {
+  const now = new Date();
+  const stamp = formatDateCompact(now) + '_' + String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0');
+  const label = scope === 'today' ? '금일' : scope === '7days' ? '최근7일' : '전체';
+  return `업무기록_AI분석용_${label}_${stamp}.json`;
+}
+
+async function writeAiExportFile(scope) {
+  const baseHandle = await ensureBaseDirHandle();
+  const dir = await fsGetOrCreateSubdir(baseHandle, AI_EXPORT_DIR);
+  const payload = collectAiExportData(scope);
+  const fileName = aiExportFileName(scope);
+  await fsWriteFile(dir, fileName, JSON.stringify(payload, null, 2));
+  return { fileName, dailyCount: payload.summary.dailyCount };
+}
+
+async function exportAiWorklog(scope) {
+  const info = document.getElementById('ai-export-info');
+  if (info) info.textContent = '저장 중...';
+  try {
+    const result = await writeAiExportFile(scope);
+    const msg = `${AI_EXPORT_DIR}/${result.fileName} 저장 완료 (일자 ${result.dailyCount}개)`;
+    if (info) info.textContent = msg;
+    showToast(msg);
+  } catch (e) {
+    const msg = 'AI 분석용 내보내기 실패: ' + e.message;
+    if (info) info.textContent = msg;
+    showToast(msg);
+    console.error(e);
+  }
+}
+
+function openAiExportModal() {
+  const modal = document.getElementById('ai-export-modal');
+  modal.classList.add('active');
+  const info = document.getElementById('ai-export-info');
+  if (info) info.textContent = `저장 폴더: 06. 일과정리_MJ/${AI_EXPORT_DIR}`;
+}
+function closeAiExportModal() {
+  document.getElementById('ai-export-modal').classList.remove('active');
 }
 
 async function findOrCreateGist() {
@@ -8781,6 +8905,16 @@ function init() {
     if (e.target.id === 'sync-modal') closeSyncModal();
   });
 
+  // AI 분석용 내보내기
+  document.getElementById('ai-export-btn').addEventListener('click', openAiExportModal);
+  document.getElementById('ai-export-cancel').addEventListener('click', closeAiExportModal);
+  document.getElementById('ai-export-today').addEventListener('click', () => exportAiWorklog('today'));
+  document.getElementById('ai-export-7days').addEventListener('click', () => exportAiWorklog('7days'));
+  document.getElementById('ai-export-all').addEventListener('click', () => exportAiWorklog('all'));
+  document.getElementById('ai-export-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'ai-export-modal') closeAiExportModal();
+  });
+
   // 초기 배지 상태
   if (getSyncToken()) updateSyncBadge('ok');
 
@@ -8849,6 +8983,7 @@ function init() {
       ['outlook-modal', typeof closeOutlookModal === 'function' ? closeOutlookModal : null],
       ['import-modal', closeImportModal],
       ['sync-modal', typeof closeSyncModal === 'function' ? closeSyncModal : null],
+      ['ai-export-modal', typeof closeAiExportModal === 'function' ? closeAiExportModal : null],
       ['summary-modal', closeSummaryModal],
       ['settings-modal', closeSettingsModal],
       ['ideas-modal', typeof closeIdeasModal === 'function' ? closeIdeasModal : null],
