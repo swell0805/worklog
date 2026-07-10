@@ -2544,11 +2544,24 @@ function aiExportFileName(scope) {
 }
 
 async function writeAiExportFile(scope) {
-  const baseHandle = await ensureBaseDirHandle();
-  const dir = await fsGetOrCreateSubdir(baseHandle, AI_EXPORT_DIR);
   const payload = collectAiExportData(scope);
   const fileName = aiExportFileName(scope);
-  await fsWriteFile(dir, fileName, JSON.stringify(payload, null, 2));
+  async function attemptWrite() {
+    const baseHandle = await ensureBaseDirHandle();
+    const dir = await fsGetOrCreateSubdir(baseHandle, AI_EXPORT_DIR);
+    await fsWriteFile(dir, fileName, JSON.stringify(payload, null, 2));
+  }
+  try {
+    await attemptWrite();
+  } catch (e) {
+    if (e && (e.name === 'NotFoundError' || String(e.message || '').includes('could not be found'))) {
+      await fsClearHandle();
+      showToast('기존 저장 위치를 찾을 수 없어 폴더를 다시 선택합니다');
+      await attemptWrite();
+    } else {
+      throw e;
+    }
+  }
   return { fileName, dailyCount: payload.summary.dailyCount };
 }
 
@@ -8197,23 +8210,38 @@ async function fsSaveHandle(handle) {
     tx.onerror = e => reject(e.target.error);
   });
 }
+async function fsClearHandle() {
+  const db = await fsOpenDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(FS_STORE, 'readwrite');
+    tx.objectStore(FS_STORE).delete(FS_KEY);
+    tx.oncomplete = () => resolve();
+    tx.onerror = e => reject(e.target.error);
+  });
+}
 async function ensureBaseDirHandle() {
   if (!window.showDirectoryPicker) {
     throw new Error('이 브라우저는 자동 저장을 지원하지 않습니다 (Chrome/Edge 권장)');
   }
   let handle = await fsGetHandle();
   if (handle) {
-    const perm = await handle.queryPermission({ mode: 'readwrite' });
-    if (perm !== 'granted') {
-      const newPerm = await handle.requestPermission({ mode: 'readwrite' });
-      if (newPerm !== 'granted') {
-        // 권한 거부됨 → 새로 선택
-        handle = null;
+    try {
+      const perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm !== 'granted') {
+        const newPerm = await handle.requestPermission({ mode: 'readwrite' });
+        if (newPerm !== 'granted') {
+          // 권한 거부됨 → 새로 선택
+          handle = null;
+        }
       }
+    } catch (e) {
+      // 저장된 폴더가 이동/삭제/동기화 지연 등으로 더 이상 유효하지 않으면 다시 선택
+      await fsClearHandle();
+      handle = null;
     }
   }
   if (!handle) {
-    showToast('분석 파일 저장 위치(예: 06. 일과정리_MJ 폴더)를 선택해주세요');
+    showToast('저장 위치로 06. 일과정리_MJ 폴더를 다시 선택해주세요');
     handle = await window.showDirectoryPicker({ mode: 'readwrite' });
     await fsSaveHandle(handle);
   }
