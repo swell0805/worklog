@@ -1197,6 +1197,23 @@
     background: #fff3dc; border: 1px solid #e0c98a; border-radius: 3px;
     padding: 3px 6px;
   }
+  /* Outlook 미리보기 — 일괄 선택 컨트롤 바 */
+  .outlook-preview-controls {
+    display: flex; gap: 8px; align-items: center;
+    padding: 8px 10px; margin-bottom: 8px;
+    background: #f5ead2; border: 1px solid #d4c5ae; border-radius: 4px;
+    font-size: 12px; color: #5c4a38;
+  }
+  .outlook-preview-controls button {
+    padding: 5px 12px; background: #fdfaf3; border: 1px solid #d4c5ae;
+    border-radius: 3px; cursor: pointer; font-size: 12px; color: #5c4a38;
+    font-family: inherit;
+  }
+  .outlook-preview-controls button:hover { background: #ede2cf; }
+  .outlook-preview-controls .opc-count {
+    margin-left: auto; font-weight: 600;
+  }
+  .outlook-preview-controls .opc-count strong { color: #8c6d4f; }
   .outlook-empty {
     padding: 30px; text-align: center; color: #a89a84;
     font-size: 13px; font-style: italic;
@@ -2762,8 +2779,41 @@ function renderOutlookPreview() {
       </div>
     `;
   }).join('');
-  preview.innerHTML = `<div class="outlook-event-list">${rows}</div>`;
+  // 일괄 선택 컨트롤 바 (전체 선택 / 전체 해제 / 실시간 카운트)
+  const controls = `
+    <div class="outlook-preview-controls">
+      <button type="button" id="outlook-select-all">☑ 전체 선택</button>
+      <button type="button" id="outlook-clear-all">☐ 전체 해제</button>
+      <span class="opc-count">선택 <strong id="outlook-selected-count">0</strong> / <span id="outlook-selectable-count">0</span>개</span>
+    </div>
+  `;
+  preview.innerHTML = controls + `<div class="outlook-event-list">${rows}</div>`;
   importBtn.hidden = false;
+
+  // 카운트 갱신 헬퍼
+  const updateCount = () => {
+    const all = preview.querySelectorAll('input[type="checkbox"]:not([disabled])');
+    const checked = preview.querySelectorAll('input[type="checkbox"]:not([disabled]):checked');
+    const selCountEl = document.getElementById('outlook-selected-count');
+    const totCountEl = document.getElementById('outlook-selectable-count');
+    if (selCountEl) selCountEl.textContent = checked.length;
+    if (totCountEl) totCountEl.textContent = all.length;
+  };
+  updateCount();
+
+  // 전체 선택 / 해제 (disabled 제외)
+  document.getElementById('outlook-select-all').addEventListener('click', () => {
+    preview.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => cb.checked = true);
+    updateCount();
+  });
+  document.getElementById('outlook-clear-all').addEventListener('click', () => {
+    preview.querySelectorAll('input[type="checkbox"]:not([disabled])').forEach(cb => cb.checked = false);
+    updateCount();
+  });
+  // 개별 체크박스 변경 시에도 카운트 갱신
+  preview.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', updateCount);
+  });
 }
 
 function outlookImportSelected() {
@@ -7158,6 +7208,7 @@ function renderColorRow() {
 }
 
 let pendingRecurringEventScope = null; // 'this' | 'all' | null
+let pendingRecurringDateScope = null;  // 되풀이 인스턴스의 날짜/시간 변경 시 본/모두 스코프
 
 function saveEvent() {
   if (!currentEditingEvent) return;
@@ -7174,11 +7225,27 @@ function saveEvent() {
   const wasRecurring = !!(ev && ev.recurringId && !ev.recurringDetached);
 
   // 날짜 변경 처리 (편집 케이스에서만)
-  // 원본 날짜에서 제거 + 매칭 todo 제거 → 새 날짜에 추가 + 매칭 todo 추가 → currentDate 전환
-  // 되풀이 일정의 경우 자동 detach (사용자가 의도적으로 다른 날짜로 옮긴 것이므로 패턴과 분리)
   const newDateKey = document.getElementById('event-date').value || originalDateKey;
-  if (ev && originalDateKey && newDateKey && newDateKey !== originalDateKey) {
-    // 1) 원본 날짜에서 제거
+  const dateChanged = ev && originalDateKey && newDateKey && newDateKey !== originalDateKey;
+  const isRecurringInst = ev && ev.recurringId && !ev.recurringDetached && type === 'planned';
+
+  // 되풀이 인스턴스 + 날짜 변경 → 본/모두 prompt (첫 진입 시)
+  if (dateChanged && isRecurringInst && !pendingRecurringDateScope) {
+    openChoiceModal({
+      title: '되풀이 일정 이동/편집',
+      message: '이번 일정만 옮기시겠어요? 같은 되풀이 전체에 적용할까요?\n(모두 선택 시: 되풀이 요일/시간이 새 날짜 기준으로 갱신되고 다른 인스턴스에도 반영됨)',
+      thisLabel: '📍 이번 일정만 이동 (되풀이 해제)',
+      allLabel: '🔁 모든 되풀이에 적용',
+      onThis: () => { pendingRecurringDateScope = 'this'; saveEvent(); },
+      onAll: () => { pendingRecurringDateScope = 'all'; saveEvent(); },
+    });
+    return;
+  }
+  const dateScope = pendingRecurringDateScope;
+  pendingRecurringDateScope = null;
+
+  if (dateChanged) {
+    // 1) 원본 날짜에서 제거 (planned + 매칭 todo)
     const originalData = getDataForDate(originalDateKey);
     if (Array.isArray(originalData[type])) {
       const i = originalData[type].findIndex(x => x.id === ev.id);
@@ -7190,27 +7257,74 @@ function saveEvent() {
       if (tIdx >= 0) originalData.todos.splice(tIdx, 1);
     }
     saveDataForDate(originalDateKey, originalData);
-    // 2) 새 날짜에 추가 (수정된 필드 적용, id 유지)
+
+    // 되풀이 인스턴스면 원본 날짜에 skip 마킹 — materialize가 다시 만들어내지 못하게
+    if (isRecurringInst && typeof markRecurringSkipped === 'function') {
+      markRecurringSkipped('daily', ev.recurringId, originalDateKey);
+    }
+
+    // "모두" 선택 시: 되풀이 템플릿 갱신 + 다른 인스턴스에도 propagate
+    if (dateScope === 'all' && ev.recurringId) {
+      const recurring = getRecurring();
+      const tplIdx = recurring.daily.findIndex(t => t.id === ev.recurringId);
+      if (tplIdx >= 0) {
+        recurring.daily[tplIdx].title = title;
+        recurring.daily[tplIdx].startTime = start;
+        recurring.daily[tplIdx].endTime = end;
+        recurring.daily[tplIdx].color = selectedColor;
+        // weekly 패턴이면 새 날짜의 요일로 갱신
+        const newWeekday = new Date(newDateKey + 'T00:00:00').getDay();
+        if (recurring.daily[tplIdx].pattern && recurring.daily[tplIdx].pattern.type === 'weekly') {
+          recurring.daily[tplIdx].pattern.weekdays = [newWeekday];
+        }
+        saveRecurring(recurring);
+      }
+      if (typeof cleanupRecurringInstancesDaily === 'function') {
+        cleanupRecurringInstancesDaily(ev.recurringId, { title, start, end, color: selectedColor }, { futureOnly: true });
+      }
+    }
+
+    // 2) 새 날짜에 추가
     const newData = getDataForDate(newDateKey);
     if (!Array.isArray(newData[type])) newData[type] = [];
     if (!Array.isArray(newData.todos)) newData.todos = [];
     const updatedEv = { ...ev, title, start, end, color: selectedColor };
-    if (updatedEv.recurringId) updatedEv.recurringDetached = true; // 되풀이는 자동 detach
+
+    // 되풀이 표시 처리
+    if (dateScope === 'this') {
+      // 본만: 되풀이 완전 해제 → 새 위치에는 단일 이벤트로 (🔁 마커 없음)
+      delete updatedEv.recurringId;
+      delete updatedEv.recurringDetached;
+    } else if (dateScope === 'all') {
+      // 모두: recurringId 유지, detached 아님 (여전히 되풀이 인스턴스)
+      delete updatedEv.recurringDetached;
+    }
+    // (되풀이 아닌 일반 이벤트의 날짜 변경은 필드 그대로)
+
+    // 색상 자동 조정: 중립 색이면 새 위치의 인접 회피 (special 색은 사용자 의도이므로 유지)
+    const colorMetaOrig = COLORS.find(c => c.bg === updatedEv.color);
+    const isSpecial = colorMetaOrig && colorMetaOrig.special;
+    if (!isSpecial && typeof getDefaultColor === 'function') {
+      const newStartMin = timeStrToMinutes(start);
+      updatedEv.color = getDefaultColor('planned', newStartMin, newData[type] || []);
+    }
+
     newData[type].push(updatedEv);
     if (type === 'planned') {
       const newTodoText = `${start} ${title}`;
-      const colorMeta = COLORS.find(c => c.bg === selectedColor);
-      const isDone = colorMeta && colorMeta.special === 'done';
+      const finalMeta = COLORS.find(c => c.bg === updatedEv.color);
+      const isDone = finalMeta && finalMeta.special === 'done';
       if (!newData.todos.some(t => t.text === newTodoText)) {
         newData.todos.push({ text: newTodoText, done: isDone });
       }
     }
     saveDataForDate(newDateKey, newData);
-    // 3) currentDate를 새 날짜로 전환 + 전체 렌더
+
+    // 3) currentDate 전환 + 전체 렌더
     currentDate = new Date(newDateKey + 'T00:00:00');
     renderAll();
     closeEventModal();
-    showToast(`${newDateKey}로 이동됨`);
+    showToast(`${newDateKey}로 이동됨${dateScope === 'all' ? ' (모든 되풀이 적용)' : ''}`);
     return;
   }
 
@@ -8720,8 +8834,34 @@ function init() {
   document.getElementById('event-modal').addEventListener('click', (e) => {
     if (e.target.id === 'event-modal') closeEventModal();
   });
+  // ESC → 열린 모달 중 우선순위 상 최상위 하나만 닫음 (겹쳐 열린 하위 모달만 닫히도록)
+  // 우선순위: 자식/nested 모달 → 부모 모달 순. 예) 주간업무 위에 업무 편집이 열려있으면 ESC 한 번에 업무 편집만 닫힘.
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { closeEventModal(); closeLongTermModal(); closeWeeklyModal(); closeSettingsModal(); closeSummaryModal(); closeImportModal(); }
+    if (e.key !== 'Escape') return;
+    const priority = [
+      ['recurring-choice-modal', typeof closeChoiceModal === 'function' ? closeChoiceModal : null],
+      ['idea-link-picker-modal', typeof closeIdeaLinkPicker === 'function' ? closeIdeaLinkPicker : null],
+      ['idea-detail-modal', typeof closeIdeaDetailModal === 'function' ? closeIdeaDetailModal : null],
+      ['recurring-edit-modal', typeof closeRecurringEditModal === 'function' ? closeRecurringEditModal : null],
+      ['event-modal', closeEventModal],
+      ['longterm-modal', closeLongTermModal],
+      ['trip-modal', typeof closeTripModal === 'function' ? closeTripModal : null],
+      ['outlook-modal', typeof closeOutlookModal === 'function' ? closeOutlookModal : null],
+      ['import-modal', closeImportModal],
+      ['sync-modal', typeof closeSyncModal === 'function' ? closeSyncModal : null],
+      ['summary-modal', closeSummaryModal],
+      ['settings-modal', closeSettingsModal],
+      ['ideas-modal', typeof closeIdeasModal === 'function' ? closeIdeasModal : null],
+      ['recurring-modal', typeof closeRecurringModal === 'function' ? closeRecurringModal : null],
+      ['weekly-modal', closeWeeklyModal],
+    ];
+    for (const [id, fn] of priority) {
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('active') && typeof fn === 'function') {
+        fn();
+        return; // 하나만 닫고 종료
+      }
+    }
   });
 
   // 업무 정리 모달 (다중 주/월 선택 + 단일 분기/반기/연)
@@ -8827,14 +8967,7 @@ function init() {
     if (typeof materializeRecurringWeekly === 'function') materializeRecurringWeekly(currentWeekStart);
   });
 
-  // ESC 시 되풀이/Outlook/출장/아이디어 모달도 같이 닫기
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeRecurringModal(); closeRecurringEditModal(); closeChoiceModal();
-      closeOutlookModal(); closeTripModal();
-      closeIdeasModal(); closeIdeaDetailModal();
-    }
-  });
+  // (ESC 핸들러는 위 통합 우선순위 로직 하나로 통합됨 — 별도 등록 제거)
 
   // 현재시간 라인 갱신
   setInterval(renderNowLine, 60000);
